@@ -12,13 +12,19 @@ npx skill-packer <command> [options]
 
 ## Commands
 
-### `pack <path>`
+### `pack <source>`
 
 Pack a skill directory into a `.skill` file (zip archive).
 
 ```bash
 # Pack a local skill
 npx skill-packer pack ./my-skill
+
+# Pack from remote repository
+npx skill-packer pack https://github.com/anthropics/skills --skill skill-creator
+
+# Pack from GitHub shorthand with skill filter
+npx skill-packer pack anthropics/skills --skill skill-creator
 
 # Specify output directory
 npx skill-packer pack ./my-skill -o ./dist
@@ -31,6 +37,7 @@ npx skill-packer pack ./my-skill --no-validate
 ```
 
 **Options:**
+- `-s, --skill <name>` - Skill name to pack (required for remote URLs)
 - `-o, --output <dir>` - Output directory (default: current directory)
 - `-f, --force` - Overwrite existing file
 - `--no-validate` - Skip validation before packing
@@ -47,8 +54,11 @@ npx skill-packer list
 # List skills in a specific directory
 npx skill-packer list ./skills
 
-# List skills from GitHub repository
+# List skills from GitHub shorthand
 npx skill-packer list vercel-labs/agent-skills
+
+# List skills from GitHub URL
+npx skill-packer list https://github.com/anthropics/skills
 
 # List skills from GitHub repository with path
 npx skill-packer list vercel-labs/agent-skills/skills

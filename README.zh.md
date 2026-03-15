@@ -12,13 +12,19 @@ npx skill-packer <command> [options]
 
 ## 命令
 
-### `pack <path>`
+### `pack <source>`
 
 将 skill 目录打包为 `.skill` 文件（zip 格式压缩包）。
 
 ```bash
 # 打包本地 skill
 npx skill-packer pack ./my-skill
+
+# 从远程仓库打包
+npx skill-packer pack https://github.com/anthropics/skills --skill skill-creator
+
+# 使用 GitHub 简写并指定 skill
+npx skill-packer pack anthropics/skills --skill skill-creator
 
 # 指定输出目录
 npx skill-packer pack ./my-skill -o ./dist
@@ -31,6 +37,7 @@ npx skill-packer pack ./my-skill --no-validate
 ```
 
 **选项：**
+- `-s, --skill <name>` - 要打包的 skill 名称（远程 URL 时必需）
 - `-o, --output <dir>` - 输出目录（默认：当前目录）
 - `-f, --force` - 覆盖已存在的文件
 - `--no-validate` - 打包前跳过验证
@@ -47,8 +54,11 @@ npx skill-packer list
 # 列出指定目录的 skills
 npx skill-packer list ./skills
 
-# 列出 GitHub 仓库中的 skills
+# 列出 GitHub 简写仓库的 skills
 npx skill-packer list vercel-labs/agent-skills
+
+# 列出 GitHub URL 仓库的 skills
+npx skill-packer list https://github.com/anthropics/skills
 
 # 列出 GitHub 仓库指定路径的 skills
 npx skill-packer list vercel-labs/agent-skills/skills
@@ -148,7 +158,8 @@ npm test
 | 移除 skill | ✅ (`skills remove`) | ❌ |
 | 列出已安装 | ✅ (`skills list`) | ❌ |
 | 列出远程源 | ❌ | ✅ (`skill-packer list`) |
-| 打包 skill | ❌ | ✅ (`skill-packer pack`) |
+| 打包本地 skill | ❌ | ✅ (`skill-packer pack`) |
+| 打包远程 skill | ❌ | ✅ (`skill-packer pack <url> --skill`) |
 | 验证 skill | ❌ | ✅ (`skill-packer check`) |
 | 安装位置 | `.agents/skills/` | N/A |
 | 输出格式 | symlink/copy | `.skill` 文件 |
