@@ -1,0 +1,51 @@
+{
+  "name": "skill-packer",
+  "version": "1.0.0",
+  "description": "Download and package skills into .skill files",
+  "type": "module",
+  "bin": {
+    "skill-packer": "./bin/cli.mjs"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "obuild",
+    "dev": "node src/cli.ts",
+    "test": "vitest",
+    "type-check": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "cli",
+    "skill",
+    "agent-skills",
+    "ai-agents",
+    "packaging"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/example/skill-packer.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@clack/prompts": "^0.11.0",
+    "archiver": "^7.0.1",
+    "gray-matter": "^4.0.3",
+    "picocolors": "^1.1.1",
+    "simple-git": "^3.27.0"
+  },
+  "devDependencies": {
+    "@types/archiver": "^6.0.3",
+    "@types/node": "^22.10.0",
+    "obuild": "^0.4.22",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.17"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
