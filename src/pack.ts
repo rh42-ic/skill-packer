@@ -11,6 +11,13 @@ const EXCLUDE_DIRS = new Set(['node_modules', '__pycache__', '.git', 'dist', 'bu
 const EXCLUDE_FILES = new Set(['.DS_Store', 'Thumbs.db']);
 const EXCLUDE_GLOBS = ['*.pyc', '*.pyo', '.env', '.env.local'];
 
+function globToRegex(pattern: string): RegExp {
+  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+  return new RegExp('^' + escaped + '$');
+}
+
+const EXCLUDE_REGEXPS = EXCLUDE_GLOBS.map(globToRegex);
+
 function shouldExclude(relPath: string): boolean {
   const parts = relPath.split(/[/\\]/);
   
@@ -25,8 +32,7 @@ function shouldExclude(relPath: string): boolean {
     return true;
   }
   
-  for (const pattern of EXCLUDE_GLOBS) {
-    const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+  for (const regex of EXCLUDE_REGEXPS) {
     if (regex.test(fileName)) {
       return true;
     }
