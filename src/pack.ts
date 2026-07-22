@@ -40,7 +40,7 @@ function shouldExclude(relPath: string): boolean {
 }
 
 export async function packSkill(options: PackOptions): Promise<PackResult> {
-  const { skillPath, outputPath, verbose = true, force = false, validate = true } = options;
+  const { skillPath, outputPath, verbose = false, force = false, validate = true } = options;
   
   const resolvedSkillPath = resolve(skillPath);
   const skillName = basename(resolvedSkillPath);

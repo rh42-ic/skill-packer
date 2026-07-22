@@ -142,7 +142,7 @@ async function runPack(args: string[]): Promise<void> {
   let skillFilter: string | undefined;
   let force = false;
   let validate = true;
-  let verbose = true;
+  let verbose = false;
 
   for (let i = 0; i < restArgs.length; i++) {
     const arg = restArgs[i];
