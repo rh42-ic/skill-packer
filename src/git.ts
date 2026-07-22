@@ -1,6 +1,7 @@
 import { mkdir, rm } from 'fs/promises';
 import { tmpdir } from 'os';
-import { join, dirname } from 'path';
+import { join } from 'path';
+import { randomUUID } from 'crypto';
 import { simpleGit } from 'simple-git';
 
 const TEMP_DIR_PREFIX = 'skill-packer-';
@@ -13,8 +14,7 @@ export class GitCloneError extends Error {
 }
 
 function generateTempDir(): string {
-  const randomId = Math.random().toString(36).slice(2);
-  return join(tmpdir(), `${TEMP_DIR_PREFIX}${randomId}`);
+  return join(tmpdir(), `${TEMP_DIR_PREFIX}${randomUUID()}`);
 }
 
 export async function cloneRepo(url: string, ref?: string): Promise<string> {
