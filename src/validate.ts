@@ -39,11 +39,11 @@ export function validateSkillMd(content: string): ValidationResult {
     );
   }
 
-  if (!frontmatter.name) {
+  if (!('name' in frontmatter)) {
     errors.push("Missing 'name' in frontmatter");
   }
 
-  if (!frontmatter.description) {
+  if (!('description' in frontmatter)) {
     errors.push("Missing 'description' in frontmatter");
   }
 
