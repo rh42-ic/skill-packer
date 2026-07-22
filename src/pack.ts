@@ -25,10 +25,6 @@ function shouldExclude(relPath: string): boolean {
     return true;
   }
   
-  if (parts.length > 1 && parts[1] === 'evals') {
-    return true;
-  }
-  
   for (const pattern of EXCLUDE_GLOBS) {
     const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
     if (regex.test(fileName)) {
@@ -133,7 +129,11 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
     
     archive.pipe(output);
     
-    const addDirectory = async (dirPath: string, basePath: string = ''): Promise<void> => {
+    const MAX_DEPTH = 20;
+
+    const addDirectory = async (dirPath: string, basePath: string = '', depth: number = 0): Promise<void> => {
+      if (depth > MAX_DEPTH) return;
+
       const entries = await readdir(dirPath, { withFileTypes: true });
       
       for (const entry of entries) {
@@ -149,7 +149,7 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
         }
         
         if (entry.isDirectory()) {
-          await addDirectory(fullEntryPath, relativePath);
+          await addDirectory(fullEntryPath, relativePath, depth + 1);
         } else if (entry.isFile()) {
           archive.file(fullEntryPath, { name: `${skillName}/${relativePath}` });
           filesIncluded.push(relativePath);
