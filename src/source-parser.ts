@@ -172,7 +172,7 @@ export function parseSource(input: string): ParsedSource {
     }
   }
 
-  const gitlabRepoMatch = input.match(/gitlab\.com\/(.+?)(?:\.git)?\/?$/);
+  const gitlabRepoMatch = input.match(/gitlab\.com\/([^/]+\/[^/]+(?:\/[^/]+)*)(?:\.git)?\/?$/);
   if (gitlabRepoMatch) {
     const repoPath = gitlabRepoMatch[1]!;
     if (repoPath.includes('/')) {
