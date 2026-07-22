@@ -13,7 +13,7 @@ const ALLOWED_PROPERTIES = new Set([
 export function validateSkillMd(content: string): ValidationResult {
   const errors: string[] = [];
 
-  if (!content.startsWith('---')) {
+  if (!content.trimStart().startsWith('---')) {
     return { valid: false, errors: ['No YAML frontmatter found'] };
   }
 
