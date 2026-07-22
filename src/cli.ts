@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import pc from 'picocolors';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync } from 'fs';
 import { join, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
 import { parseSource } from './source-parser.ts';
@@ -328,4 +328,8 @@ async function main(): Promise<void> {
   }
 }
 
-main();
+main().catch((err) => {
+  const message = err instanceof Error ? err.message : 'Unknown error';
+  console.error(`Fatal: ${message}`);
+  process.exit(1);
+});
