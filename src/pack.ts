@@ -18,7 +18,7 @@ function globToRegex(pattern: string): RegExp {
 
 const EXCLUDE_REGEXPS = EXCLUDE_GLOBS.map(globToRegex);
 
-function shouldExclude(relPath: string): boolean {
+export function shouldExclude(relPath: string): boolean {
   const parts = relPath.split(/[/\\]/);
   
   for (const part of parts) {
@@ -172,7 +172,7 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
   });
 }
 
-function formatBytes(bytes: number): string {
+export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;

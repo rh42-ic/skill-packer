@@ -1,0 +1,225 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { shouldExclude, formatBytes } from '../pack.ts';
+import { existsSync, mkdirSync, writeFileSync, rmSync } from 'fs';
+import { join } from 'path';
+import { tmpdir } from 'os';
+import { randomUUID } from 'crypto';
+
+// ============================================================
+// Pure function tests
+// ============================================================
+describe('shouldExclude', () => {
+  it('excludes node_modules directory at any level', () => {
+    expect(shouldExclude('node_modules')).toBe(true);
+    expect(shouldExclude('path/to/node_modules/package')).toBe(true);
+    expect(shouldExclude('node_modules/pkg/index.js')).toBe(true);
+  });
+
+  it('excludes .git directory', () => {
+    expect(shouldExclude('.git')).toBe(true);
+    expect(shouldExclude('.git/objects/abc')).toBe(true);
+  });
+
+  it('excludes dist directory', () => {
+    expect(shouldExclude('dist/bundle.js')).toBe(true);
+  });
+
+  it('excludes build directory', () => {
+    expect(shouldExclude('build/output.js')).toBe(true);
+  });
+
+  it('excludes __pycache__ directory', () => {
+    expect(shouldExclude('__pycache__/module.pyc')).toBe(true);
+  });
+
+  it('excludes evals directory', () => {
+    expect(shouldExclude('evals/test.ts')).toBe(true);
+  });
+
+  it('excludes .DS_Store files', () => {
+    expect(shouldExclude('.DS_Store')).toBe(true);
+    expect(shouldExclude('subdir/.DS_Store')).toBe(true);
+  });
+
+  it('excludes Thumbs.db files', () => {
+    expect(shouldExclude('Thumbs.db')).toBe(true);
+  });
+
+  it('excludes *.pyc files', () => {
+    expect(shouldExclude('module.pyc')).toBe(true);
+  });
+
+  it('excludes *.pyo files', () => {
+    expect(shouldExclude('module.pyo')).toBe(true);
+  });
+
+  it('excludes .env files', () => {
+    expect(shouldExclude('.env')).toBe(true);
+  });
+
+  it('excludes .env.local files', () => {
+    expect(shouldExclude('.env.local')).toBe(true);
+  });
+
+  it('does not exclude regular files', () => {
+    expect(shouldExclude('SKILL.md')).toBe(false);
+    expect(shouldExclude('src/index.ts')).toBe(false);
+    expect(shouldExclude('README.md')).toBe(false);
+  });
+
+  it('does not exclude regular directories', () => {
+    expect(shouldExclude('src')).toBe(false);
+    expect(shouldExclude('skills/my-skill')).toBe(false);
+  });
+
+  it('handles Windows-style path separators', () => {
+    expect(shouldExclude('node_modules\\pkg\\index.js')).toBe(true);
+    expect(shouldExclude('src\\index.ts')).toBe(false);
+  });
+});
+
+describe('formatBytes', () => {
+  it('formats bytes less than 1024', () => {
+    expect(formatBytes(0)).toBe('0 B');
+    expect(formatBytes(512)).toBe('512 B');
+    expect(formatBytes(1023)).toBe('1023 B');
+  });
+
+  it('formats KB', () => {
+    expect(formatBytes(1024)).toBe('1.0 KB');
+    expect(formatBytes(1536)).toBe('1.5 KB');
+    expect(formatBytes(1048575)).toBe('1024.0 KB');
+  });
+
+  it('formats MB', () => {
+    expect(formatBytes(1048576)).toBe('1.00 MB');
+    expect(formatBytes(5242880)).toBe('5.00 MB');
+  });
+});
+
+// ============================================================
+// Integration test for packSkill
+// ============================================================
+describe('packSkill', () => {
+  let tmpDir: string;
+  let skillDir: string;
+
+  beforeEach(() => {
+    tmpDir = join(tmpdir(), `skill-packer-test-${randomUUID()}`);
+    mkdirSync(tmpDir, { recursive: true });
+    skillDir = join(tmpDir, 'test-skill');
+    mkdirSync(skillDir, { recursive: true });
+
+    // Create a minimal valid skill
+    writeFileSync(
+      join(skillDir, 'SKILL.md'),
+      `---
+name: test-skill
+description: A test skill for unit testing
+---
+# Test Skill
+
+This is a test skill.`
+    );
+
+    // Add some extra files
+    writeFileSync(join(skillDir, 'README.md'), '# Test Skill');
+    writeFileSync(join(skillDir, 'index.ts'), 'export {}');
+    mkdirSync(join(skillDir, 'src'));
+    writeFileSync(join(skillDir, 'src', 'helper.ts'), 'export const x = 1;');
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('packs a valid skill directory', async () => {
+    const { packSkill } = await import('../pack.ts');
+    const result = await packSkill({
+      skillPath: skillDir,
+      outputPath: tmpDir,
+    });
+
+    expect(result.skillName).toBe('test-skill');
+    expect(result.outputPath).toBe(join(tmpDir, 'test-skill.skill'));
+    expect(result.filesIncluded).toBeGreaterThanOrEqual(4); // SKILL.md, README.md, index.ts, src/helper.ts
+    expect(existsSync(result.outputPath)).toBe(true);
+  });
+
+  it('skips excluded files and directories', async () => {
+    // Add some excluded content
+    mkdirSync(join(skillDir, 'node_modules'));
+    writeFileSync(join(skillDir, 'node_modules', 'dep.js'), '');
+    writeFileSync(join(skillDir, '.DS_Store'), '');
+    mkdirSync(join(skillDir, '.git'));
+    writeFileSync(join(skillDir, '.git', 'HEAD'), '');
+
+    const { packSkill } = await import('../pack.ts');
+    const result = await packSkill({
+      skillPath: skillDir,
+      outputPath: tmpDir,
+    });
+
+    expect(result.filesExcluded.length).toBeGreaterThanOrEqual(3);
+    expect(result.filesExcluded).toContain('node_modules');
+    expect(result.filesExcluded).toContain('.DS_Store');
+    expect(result.filesExcluded).toContain('.git');
+  });
+
+  it('fails when output file exists and force is false', async () => {
+    // Pre-create the output file
+    writeFileSync(join(tmpDir, 'test-skill.skill'), 'existing');
+
+    const { packSkill } = await import('../pack.ts');
+    await expect(
+      packSkill({
+        skillPath: skillDir,
+        outputPath: tmpDir,
+        force: false,
+      })
+    ).rejects.toThrow('File already exists');
+  });
+
+  it('overwrites when force is true', async () => {
+    writeFileSync(join(tmpDir, 'test-skill.skill'), 'existing');
+
+    const { packSkill } = await import('../pack.ts');
+    const result = await packSkill({
+      skillPath: skillDir,
+      outputPath: tmpDir,
+      force: true,
+    });
+
+    expect(existsSync(result.outputPath)).toBe(true);
+  });
+
+  it('fails validation for invalid skill', async () => {
+    // Create invalid skill without SKILL.md
+    const invalidDir = join(tmpDir, 'invalid-skill');
+    mkdirSync(invalidDir, { recursive: true });
+
+    const { packSkill } = await import('../pack.ts');
+    await expect(
+      packSkill({
+        skillPath: invalidDir,
+        outputPath: tmpDir,
+      })
+    ).rejects.toThrow('Validation failed');
+  });
+
+  it('skips validation when validate=false', async () => {
+    const invalidDir = join(tmpDir, 'no-validate-skill');
+    mkdirSync(invalidDir, { recursive: true });
+    writeFileSync(join(invalidDir, 'README.md'), '# Just a dir');
+
+    const { packSkill } = await import('../pack.ts');
+    const result = await packSkill({
+      skillPath: invalidDir,
+      outputPath: tmpDir,
+      validate: false,
+    });
+
+    expect(result.skillName).toBe('no-validate-skill');
+    expect(existsSync(result.outputPath)).toBe(true);
+  });
+});

@@ -127,7 +127,7 @@ ${BOLD}Examples:${RESET}
 `);
 }
 
-async function runPack(args: string[]): Promise<void> {
+export async function runPack(args: string[]): Promise<void> {
   if (args.length === 0 || args[0]?.startsWith('-')) {
     console.log(pc.red('Error: Missing source'));
     console.log('Usage: skill-packer pack <source> [options]');
@@ -235,7 +235,7 @@ async function runPack(args: string[]): Promise<void> {
   }
 }
 
-async function runList(args: string[]): Promise<void> {
+export async function runList(args: string[]): Promise<void> {
   const restArgs = args;
   
   let source: string | undefined;
@@ -267,7 +267,7 @@ async function runList(args: string[]): Promise<void> {
   }
 }
 
-async function runCheck(args: string[]): Promise<void> {
+export async function runCheck(args: string[]): Promise<void> {
   if (args.length === 0 || args[0]?.startsWith('-')) {
     console.log(pc.red('Error: Missing skill path'));
     console.log('Usage: skill-packer check <path>');
@@ -298,7 +298,7 @@ async function runCheck(args: string[]): Promise<void> {
   }
 }
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   const args = process.argv.slice(2);
 
   if (args.length === 0) {
@@ -342,8 +342,13 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  const message = err instanceof Error ? err.message : 'Unknown error';
-  console.error(`Fatal: ${message}`);
-  process.exit(1);
-});
+// Only auto-run when executed directly, not when imported (e.g., by tests)
+const cliFilePath = fileURLToPath(import.meta.url).replace(/\\/g, '/');
+const execPath = (process.argv[1] || '').replace(/\\/g, '/');
+if (execPath === cliFilePath || execPath.endsWith('/cli.mjs') || execPath.endsWith('/cli.js')) {
+  main().catch((err) => {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    console.error(`Fatal: ${message}`);
+    process.exit(1);
+  });
+}
