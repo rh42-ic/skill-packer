@@ -1,4 +1,6 @@
 import matter from 'gray-matter';
+import { readFile, stat } from 'fs/promises';
+import { join } from 'path';
 import type { ValidationResult } from './types.ts';
 
 const ALLOWED_PROPERTIES = new Set([
@@ -49,14 +51,14 @@ export function validateSkillMd(content: string): ValidationResult {
   if (typeof name === 'string') {
     const trimmedName = name.trim();
     if (trimmedName) {
+      if (trimmedName.length > 64) {
+        errors.push(`Name is too long (${trimmedName.length} characters). Maximum is 64 characters.`);
+      }
       if (!/^[a-z0-9-]+$/.test(trimmedName)) {
         errors.push(`Name '${trimmedName}' should be kebab-case (lowercase letters, digits, and hyphens only)`);
       }
       if (trimmedName.startsWith('-') || trimmedName.endsWith('-') || trimmedName.includes('--')) {
         errors.push(`Name '${trimmedName}' cannot start/end with hyphen or contain consecutive hyphens`);
-      }
-      if (trimmedName.length > 64) {
-        errors.push(`Name is too long (${trimmedName.length} characters). Maximum is 64 characters.`);
       }
     }
   } else if (name !== undefined) {
@@ -94,9 +96,6 @@ export function validateSkillMd(content: string): ValidationResult {
 }
 
 export async function validateSkillPath(skillPath: string): Promise<ValidationResult> {
-  const { readFile, stat } = await import('fs/promises');
-  const { join } = await import('path');
-
   try {
     const stats = await stat(skillPath);
     if (!stats.isDirectory()) {
