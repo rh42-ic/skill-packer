@@ -187,6 +187,10 @@ async function runPack(args: string[]): Promise<void> {
       }
     }
 
+    if (!skillFilter && parsed.skillFilter) {
+      skillFilter = parsed.skillFilter;
+    }
+
     if (skillFilter) {
       if (verbose) {
         console.log(`${pc.cyan('🔍')} Finding skill: ${pc.yellow(skillFilter)}`);
