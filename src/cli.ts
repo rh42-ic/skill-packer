@@ -147,9 +147,19 @@ async function runPack(args: string[]): Promise<void> {
   for (let i = 0; i < restArgs.length; i++) {
     const arg = restArgs[i];
     if (arg === '-o' || arg === '--output') {
-      outputDir = restArgs[++i];
+      const val = restArgs[++i];
+      if (!val || val.startsWith('-')) {
+        console.log(pc.red(`Error: --output requires a directory path`));
+        process.exit(1);
+      }
+      outputDir = val;
     } else if (arg === '-s' || arg === '--skill') {
-      skillFilter = restArgs[++i];
+      const val = restArgs[++i];
+      if (!val || val.startsWith('-')) {
+        console.log(pc.red(`Error: --skill requires a skill name`));
+        process.exit(1);
+      }
+      skillFilter = val;
     } else if (arg === '-f' || arg === '--force') {
       force = true;
     } else if (arg === '--no-validate') {
