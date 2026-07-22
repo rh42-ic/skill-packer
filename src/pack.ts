@@ -89,8 +89,17 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
   return new Promise((resolve, reject) => {
     const output = createWriteStream(outputFilePath);
     const archive = archiver('zip', { zlib: { level: 9 } });
+
+    let settled = false;
+    const fail = (err: Error) => {
+      if (settled) return;
+      settled = true;
+      output.destroy();
+      reject(err);
+    };
     
     output.on('close', () => {
+      if (settled) return;
       const size = archive.pointer();
       
       if (verbose) {
@@ -119,9 +128,8 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
       });
     });
     
-    archive.on('error', (err) => {
-      reject(err);
-    });
+    archive.on('error', fail);
+    output.on('error', fail);
     
     archive.pipe(output);
     
@@ -154,7 +162,7 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
     
     addDirectory(resolvedSkillPath).then(() => {
       archive.finalize();
-    }).catch(reject);
+    }).catch(fail);
   });
 }
 
