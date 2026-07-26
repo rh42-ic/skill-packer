@@ -90,46 +90,11 @@ Validate a skill directory.
 npx skill-packer check ./my-skill
 ```
 
-## Skill Format
-
-A skill is a directory containing a `SKILL.md` file with YAML frontmatter:
-
-```markdown
----
-name: my-skill
-description: A brief description of what this skill does
----
-
-# Skill Title
-
-Instructions for the agent to follow when this skill is activated.
-
-## When to use
-
-Describe when this skill should be used.
-
-## Instructions
-
-1. First step
-2. Second step
-```
-
 ### Validation Rules
 
 - **name** (required): kebab-case, lowercase letters/digits/hyphens, max 64 characters
 - **description** (required): max 1024 characters, no angle brackets
 - **license**, **compatibility**, **metadata**, **allowed-tools** (optional)
-
-### Excluded Files
-
-When packing, the following are automatically excluded:
-- `node_modules/`
-- `__pycache__/`
-- `.git/`
-- `.DS_Store`
-- `*.pyc`
-- `.env`, `.env.local`
-- `evals/` (only at skill root)
 
 ## Development
 

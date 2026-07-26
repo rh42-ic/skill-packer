@@ -90,46 +90,11 @@ npx skill-packer list ./my-repo --full-depth
 npx skill-packer check ./my-skill
 ```
 
-## Skill 格式规范
-
-一个 skill 是一个包含 `SKILL.md` 文件的目录，格式如下：
-
-```markdown
----
-name: my-skill
-description: 简短描述这个 skill 的功能
----
-
-# Skill 标题
-
-当 skill 被激活时，agent 需要遵循的指令。
-
-## 使用场景
-
-描述何时应该使用这个 skill。
-
-## 执行步骤
-
-1. 第一步
-2. 第二步
-```
-
 ### 验证规则
 
 - **name**（必需）：kebab-case 格式，小写字母/数字/连字符，最长 64 个字符
 - **description**（必需）：最长 1024 个字符，不能包含尖括号
 - **license**, **compatibility**, **metadata**, **allowed-tools**（可选）
-
-### 打包排除规则
-
-打包时自动排除以下文件：
-- `node_modules/`
-- `__pycache__/`
-- `.git/`
-- `.DS_Store`
-- `*.pyc`
-- `.env`, `.env.local`
-- `evals/`（仅 skill 根目录）
 
 ## 开发
 
@@ -149,20 +114,6 @@ npm run type-check
 # 运行测试
 npm test
 ```
-
-## 与 agent-skills 的对比
-
-| 功能 | agent-skills | skill-packer |
-|------|--------------|--------------|
-| 安装 skill | ✅ (`skills add`) | ❌ |
-| 移除 skill | ✅ (`skills remove`) | ❌ |
-| 列出已安装 | ✅ (`skills list`) | ❌ |
-| 列出远程源 | ❌ | ✅ (`skill-packer list`) |
-| 打包本地 skill | ❌ | ✅ (`skill-packer pack`) |
-| 打包远程 skill | ❌ | ✅ (`skill-packer pack <url> --skill`) |
-| 验证 skill | ❌ | ✅ (`skill-packer check`) |
-| 安装位置 | `.agents/skills/` | N/A |
-| 输出格式 | symlink/copy | `.skill` 文件 |
 
 ## 致敬
 
