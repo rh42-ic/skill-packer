@@ -24,6 +24,7 @@ export interface DiscoverSkillsOptions {
 export interface ValidationResult {
   valid: boolean;
   errors: string[];
+  warnings: string[];
 }
 
 export interface PackOptions {
@@ -32,6 +33,7 @@ export interface PackOptions {
   verbose?: boolean;
   force?: boolean;
   validate?: boolean;
+  strict?: boolean;
 }
 
 export interface PackResult {

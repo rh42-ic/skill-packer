@@ -42,7 +42,7 @@ export function shouldExclude(relPath: string): boolean {
 }
 
 export async function packSkill(options: PackOptions): Promise<PackResult> {
-  const { skillPath, outputPath, verbose = false, force = false, validate = true } = options;
+  const { skillPath, outputPath, verbose = false, force = false, validate = true, strict = false } = options;
   
   const resolvedSkillPath = resolve(skillPath);
   const skillName = basename(resolvedSkillPath);
@@ -52,7 +52,7 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
       console.log(`${pc.cyan('🔍')} Validating skill...`);
     }
     
-    const validation = await validateSkillPath(resolvedSkillPath);
+    const validation = await validateSkillPath(resolvedSkillPath, { strict });
     
     if (!validation.valid) {
       console.log(pc.red(`❌ Validation failed:`));
@@ -60,6 +60,13 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
         console.log(pc.red(`   ${error}`));
       }
       throw new Error('Validation failed');
+    }
+
+    if (validation.warnings.length > 0) {
+      console.log(pc.yellow(`⚠️  Warnings:`));
+      for (const warning of validation.warnings) {
+        console.log(pc.yellow(`   ${warning}`));
+      }
     }
     
     if (verbose) {

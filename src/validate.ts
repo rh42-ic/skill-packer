@@ -12,11 +12,18 @@ const ALLOWED_PROPERTIES = new Set([
   'compatibility',
 ]);
 
-export function validateSkillMd(content: string): ValidationResult {
+export interface ValidateOptions {
+  /** When true, unexpected frontmatter keys are errors instead of warnings. Default: false. */
+  strict?: boolean;
+}
+
+export function validateSkillMd(content: string, opts?: ValidateOptions): ValidationResult {
   const errors: string[] = [];
+  const warnings: string[] = [];
+  const strict = opts?.strict === true;
 
   if (!content.trimStart().startsWith('---')) {
-    return { valid: false, errors: ['No YAML frontmatter found'] };
+    return { valid: false, errors: ['No YAML frontmatter found'], warnings };
   }
 
   let frontmatter: Record<string, unknown>;
@@ -25,18 +32,21 @@ export function validateSkillMd(content: string): ValidationResult {
     frontmatter = parsed.data as Record<string, unknown>;
     
     if (typeof frontmatter !== 'object' || frontmatter === null) {
-      return { valid: false, errors: ['Frontmatter must be a YAML dictionary'] };
+      return { valid: false, errors: ['Frontmatter must be a YAML dictionary'], warnings };
     }
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Unknown error';
-    return { valid: false, errors: [`Invalid YAML in frontmatter: ${message}`] };
+    return { valid: false, errors: [`Invalid YAML in frontmatter: ${message}`], warnings };
   }
 
   const unexpectedKeys = Object.keys(frontmatter).filter((k) => !ALLOWED_PROPERTIES.has(k));
   if (unexpectedKeys.length > 0) {
-    errors.push(
-      `Unexpected key(s) in frontmatter: ${unexpectedKeys.join(', ')}. Allowed: name, description, license, compatibility, metadata, allowed-tools`
-    );
+    const msg = `Unexpected key(s) in frontmatter: ${unexpectedKeys.join(', ')}. Allowed: name, description, license, compatibility, metadata, allowed-tools`;
+    if (strict) {
+      errors.push(msg);
+    } else {
+      warnings.push(msg);
+    }
   }
 
   if (!('name' in frontmatter)) {
@@ -92,24 +102,27 @@ export function validateSkillMd(content: string): ValidationResult {
   return {
     valid: errors.length === 0,
     errors,
+    warnings,
   };
 }
 
-export async function validateSkillPath(skillPath: string): Promise<ValidationResult> {
+export async function validateSkillPath(skillPath: string, opts?: ValidateOptions): Promise<ValidationResult> {
+  const warnings: string[] = [];
+
   try {
     const stats = await stat(skillPath);
     if (!stats.isDirectory()) {
-      return { valid: false, errors: [`Path is not a directory: ${skillPath}`] };
+      return { valid: false, errors: [`Path is not a directory: ${skillPath}`], warnings };
     }
   } catch {
-    return { valid: false, errors: [`Skill folder not found: ${skillPath}`] };
+    return { valid: false, errors: [`Skill folder not found: ${skillPath}`], warnings };
   }
 
   const skillMdPath = join(skillPath, 'SKILL.md');
   try {
     const content = await readFile(skillMdPath, 'utf-8');
-    return validateSkillMd(content);
+    return validateSkillMd(content, opts);
   } catch {
-    return { valid: false, errors: [`SKILL.md not found in ${skillPath}`] };
+    return { valid: false, errors: [`SKILL.md not found in ${skillPath}`], warnings };
   }
 }

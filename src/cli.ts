@@ -69,6 +69,7 @@ function showBanner(): void {
   console.log(`  ${TEXT}-s, --skill <name>${RESET}    ${DIM}Skill name to pack (for URLs)${RESET}`);
   console.log(`  ${TEXT}-f, --force${RESET}          ${DIM}Overwrite existing file${RESET}`);
   console.log(`  ${TEXT}--no-validate${RESET}       ${DIM}Skip validation${RESET}`);
+  console.log(`  ${TEXT}--strict${RESET}            ${DIM}Treat unknown frontmatter keys as errors${RESET}`);
   console.log(`  ${TEXT}-v, --verbose${RESET}       ${DIM}Show detailed output${RESET}`);
   console.log(`  ${TEXT}-j, --json${RESET}           ${DIM}Output as JSON${RESET}`);
   console.log(`  ${TEXT}--full-depth${RESET}         ${DIM}Search all subdirectories${RESET}`);
@@ -89,7 +90,11 @@ ${BOLD}Pack Options:${RESET}
   -s, --skill <name>     Skill name to pack (required for remote URLs)
   -f, --force            Overwrite existing .skill file
   --no-validate         Skip validation before packing
+  --strict               Treat unknown frontmatter keys as errors
   -v, --verbose          Show detailed output
+
+${BOLD}Check Options:${RESET}
+  --strict               Treat unknown frontmatter keys as errors
 
 ${BOLD}List Options:${RESET}
   -j, --json             Output as JSON
@@ -143,6 +148,7 @@ export async function runPack(args: string[]): Promise<void> {
   let force = false;
   let validate = true;
   let verbose = false;
+  let strict = false;
 
   for (let i = 0; i < restArgs.length; i++) {
     const arg = restArgs[i];
@@ -166,6 +172,8 @@ export async function runPack(args: string[]): Promise<void> {
       validate = false;
     } else if (arg === '-v' || arg === '--verbose') {
       verbose = true;
+    } else if (arg === '--strict') {
+      strict = true;
     }
   }
 
@@ -222,6 +230,7 @@ export async function runPack(args: string[]): Promise<void> {
       force,
       validate,
       verbose,
+      strict,
     });
 
   } catch (e) {
@@ -268,20 +277,37 @@ export async function runList(args: string[]): Promise<void> {
 }
 
 export async function runCheck(args: string[]): Promise<void> {
-  if (args.length === 0 || args[0]?.startsWith('-')) {
+  let strict = false;
+  let skillPath: string | undefined;
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === '--strict') {
+      strict = true;
+    } else if (!arg!.startsWith('-')) {
+      skillPath = arg;
+    }
+  }
+
+  if (!skillPath) {
     console.log(pc.red('Error: Missing skill path'));
-    console.log('Usage: skill-packer check <path>');
+    console.log('Usage: skill-packer check <path> [--strict]');
     process.exit(1);
   }
 
-  const skillPath = args[0]!;
-
-  console.log(`${pc.cyan('🔍')} Validating skill: ${pc.yellow(skillPath)}\n`);
+  console.log(`${pc.cyan('🔍')} Validating skill: ${pc.yellow(skillPath)}${strict ? pc.dim(' (strict mode)') : ''}\n`);
 
   try {
-    const result = await validateSkillPath(skillPath);
+    const result = await validateSkillPath(skillPath, { strict });
     
     if (result.valid) {
+      if (result.warnings.length > 0) {
+        console.log(`${pc.yellow('⚠')} Skill is valid with warnings:\n`);
+        for (const warning of result.warnings) {
+          console.log(`  ${pc.yellow('•')} ${warning}`);
+        }
+        console.log();
+      }
       console.log(`${pc.green('✓')} Skill is valid!\n`);
       process.exit(0);
     } else {
@@ -289,6 +315,13 @@ export async function runCheck(args: string[]): Promise<void> {
       for (const error of result.errors) {
         console.log(`  ${pc.red('•')} ${error}`);
       }
+      if (result.warnings.length > 0) {
+        console.log(`\n${pc.yellow('⚠')} Warnings:`);
+        for (const warning of result.warnings) {
+          console.log(`  ${pc.yellow('•')} ${warning}`);
+        }
+      }
+      console.log();
       process.exit(1);
     }
   } catch (e) {

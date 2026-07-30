@@ -208,7 +208,7 @@ body`;
   });
 
   // --- unexpected keys ---
-  it('warns about unexpected frontmatter keys', () => {
+  it('warns about unexpected frontmatter keys (does not affect validity)', () => {
     const content = `---
 name: my-skill
 description: A skill
@@ -217,9 +217,24 @@ baz: qux
 ---
 body`;
     const result = validateSkillMd(content);
+    expect(result.valid).toBe(true);
+    expect(result.errors).toHaveLength(0);
+    expect(result.warnings.some((w) => w.includes('Unexpected key'))).toBe(true);
+    expect(result.warnings.some((w) => w.includes('foo') && w.includes('baz'))).toBe(true);
+  });
+
+  it('rejects unexpected frontmatter keys in strict mode', () => {
+    const content = `---
+name: my-skill
+description: A skill
+foo: bar
+---
+body`;
+    const result = validateSkillMd(content, { strict: true });
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes('Unexpected key'))).toBe(true);
-    expect(result.errors.some((e) => e.includes('foo') && e.includes('baz'))).toBe(true);
+    expect(result.errors.some((e) => e.includes('foo'))).toBe(true);
+    expect(result.warnings).toHaveLength(0);
   });
 
   // --- allowed keys ---

@@ -7,3 +7,4 @@ dist/
 .env.local
 test
 reasonix.toml
+.opencode

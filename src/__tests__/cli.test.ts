@@ -145,12 +145,12 @@ describe('CLI', () => {
 
   describe('runCheck', () => {
     it('validates a skill path', async () => {
-      mockValidateSkillPath.mockResolvedValue({ valid: true, errors: [] });
+      mockValidateSkillPath.mockResolvedValue({ valid: true, errors: [], warnings: [] });
 
       const logSpy = vi.spyOn(console, 'log');
       await runCheck(['/path/to/skill']);
 
-      expect(mockValidateSkillPath).toHaveBeenCalledWith('/path/to/skill');
+      expect(mockValidateSkillPath).toHaveBeenCalledWith('/path/to/skill', { strict: false });
       const output = logSpy.mock.calls.map(c => c.join(' ')).join('\n');
       expect(output).toContain('Skill is valid');
     });
@@ -159,6 +159,7 @@ describe('CLI', () => {
       mockValidateSkillPath.mockResolvedValue({
         valid: false,
         errors: ['Missing name', 'Missing description'],
+        warnings: [],
       });
 
       const logSpy = vi.spyOn(console, 'log');
@@ -173,14 +174,14 @@ describe('CLI', () => {
     });
 
     it('handles "validate" alias via main()', async () => {
-      mockValidateSkillPath.mockResolvedValue({ valid: true, errors: [] });
+      mockValidateSkillPath.mockResolvedValue({ valid: true, errors: [], warnings: [] });
 
       const oldArgv = process.argv;
       process.argv = ['node', 'skill-packer', 'validate', '/path/to/skill'];
 
       await main();
 
-      expect(mockValidateSkillPath).toHaveBeenCalledWith('/path/to/skill');
+      expect(mockValidateSkillPath).toHaveBeenCalledWith('/path/to/skill', { strict: false });
 
       process.argv = oldArgv;
     });

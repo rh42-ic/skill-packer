@@ -2,9 +2,9 @@
 
 # skill-packer
 
-A CLI tool to download and package skills into `.skill` files.
+Package AI agent skills into `.skill` files. Supports local directories, GitHub repos, GitLab repos, and generic Git URLs.
 
-## Installation
+## Quick Start
 
 ```bash
 npx skill-packer <command> [options]
@@ -14,111 +14,72 @@ npx skill-packer <command> [options]
 
 ### `pack <source>`
 
-Pack a skill directory into a `.skill` file (zip archive).
-
 ```bash
-# Pack a local skill
-npx skill-packer pack ./my-skill
-
-# Pack from remote repository
-npx skill-packer pack https://github.com/anthropics/skills --skill skill-creator
-
-# Pack from GitHub shorthand with skill filter
-npx skill-packer pack anthropics/skills --skill skill-creator
-
-# Specify output directory
-npx skill-packer pack ./my-skill -o ./dist
-
-# Overwrite existing file
-npx skill-packer pack ./my-skill --force
-
-# Skip validation
-npx skill-packer pack ./my-skill --no-validate
+npx skill-packer pack ./my-skill                        # local
+npx skill-packer pack anthropics/skills -s skill-creator # GitHub shorthand
+npx skill-packer pack https://github.com/anthropics/skills -s skill-creator
+npx skill-packer pack ./my-skill -o ./dist -f           # output dir + overwrite
 ```
 
-**Options:**
-- `-s, --skill <name>` - Skill name to pack (required for remote URLs)
-- `-o, --output <dir>` - Output directory (default: current directory)
-- `-f, --force` - Overwrite existing file
-- `--no-validate` - Skip validation before packing
-- `-v, --verbose` - Show detailed output
+| Option | Description |
+|--------|-------------|
+| `-s, --skill <name>` | Skill name (required for remote URLs) |
+| `-o, --output <dir>` | Output directory (default: cwd) |
+| `-f, --force` | Overwrite existing file |
+| `--no-validate` | Skip validation |
+| `--strict` | Treat unknown frontmatter keys as errors |
+| `-v, --verbose` | Verbose output |
+
+Validation runs automatically before packing. Unknown frontmatter keys produce warnings by default — use `--strict` to fail on them.
 
 ### `list [source]`
 
-List skills in a repository or directory.
-
 ```bash
-# List skills in current directory
-npx skill-packer list
-
-# List skills in a specific directory
-npx skill-packer list ./skills
-
-# List skills from GitHub shorthand
-npx skill-packer list vercel-labs/agent-skills
-
-# List skills from GitHub URL
-npx skill-packer list https://github.com/anthropics/skills
-
-# List skills from GitHub repository with path
-npx skill-packer list vercel-labs/agent-skills/skills
-
-# Output as JSON
-npx skill-packer list vercel-labs/agent-skills --json
-
-# Search all subdirectories
+npx skill-packer list                         # current dir
+npx skill-packer list ./skills                # specific dir
+npx skill-packer list vercel-labs/agent-skills # GitHub shorthand
+npx skill-packer list https://github.com/anthropics/skills --json
 npx skill-packer list ./my-repo --full-depth
 ```
 
-**Source Formats:**
-- Local path: `./path/to/skill` or `/absolute/path`
-- GitHub shorthand: `owner/repo` or `owner/repo/path/to/skill`
-- GitHub URL: `https://github.com/owner/repo`
-- GitLab URL: `https://gitlab.com/owner/repo`
-- Git URL: `https://any-git-host.com/repo.git`
+| Option | Description |
+|--------|-------------|
+| `-j, --json` | JSON output |
+| `-v, --verbose` | Detailed output |
+| `--full-depth` | Search subdirectories even with root SKILL.md |
 
-**Options:**
-- `-j, --json` - Output as JSON
-- `-v, --verbose` - Show detailed information
-- `--full-depth` - Search all subdirectories even with root SKILL.md
+**Source formats:** local path, `owner/repo[/path]`, `https://github.com/...`, `https://gitlab.com/...`, or any Git URL.
 
 ### `check <path>`
 
-Validate a skill directory.
-
 ```bash
 npx skill-packer check ./my-skill
+npx skill-packer check ./my-skill --strict
 ```
 
-### Validation Rules
+**Validation rules:**
 
-- **name** (required): kebab-case, lowercase letters/digits/hyphens, max 64 characters
-- **description** (required): max 1024 characters, no angle brackets
-- **license**, **compatibility**, **metadata**, **allowed-tools** (optional)
+| Field | Required | Constraints |
+|-------|:--------:|-------------|
+| `name` | yes | kebab-case (`a-z`, `0-9`, `-`), max 64 chars |
+| `description` | yes | max 1024 chars, no `<>` |
+| `license` | no | — |
+| `compatibility` | no | max 500 chars |
+| `metadata` | no | — |
+| `allowed-tools` | no | — |
+
+Unknown fields → warning (default) or error (`--strict`).
+
+Validation rules follow the [skill-creator](https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md) specification.
 
 ## Development
 
 ```bash
-# Install dependencies
-npm install
-
-# Build
-npm run build
-
-# Run locally
-node bin/cli.mjs --help
-
-# Type check
-npm run type-check
-
-# Run tests
-npm test
+npm install && npm run build   # setup + build
+npm test                       # run tests
+npm run type-check             # type checking
 ```
-
-## Credits
-
-This project incorporates code from [vercel-labs/skills](https://github.com/vercel-labs/skills) licensed under the MIT License.
 
 ## License
 
-MIT
+MIT — incorporates code from [vercel-labs/skills](https://github.com/vercel-labs/skills).
