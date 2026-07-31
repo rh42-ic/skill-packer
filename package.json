@@ -1,8 +1,16 @@
 {
   "name": "skill-packer",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Download and package skills into .skill files",
   "type": "module",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
   "bin": {
     "skill-packer": "./bin/cli.mjs"
   },
