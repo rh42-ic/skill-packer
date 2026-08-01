@@ -1,7 +1,7 @@
 import { readdir, mkdir } from 'fs/promises';
 import { join, basename, resolve } from 'path';
 import { createWriteStream, existsSync } from 'fs';
-import archiver from 'archiver';
+import { ZipArchive } from 'archiver';
 import pc from 'picocolors';
 import type { PackOptions, PackResult } from './types.ts';
 import { validateSkillPath } from './validate.ts';
@@ -97,7 +97,7 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
   
   return new Promise((resolve, reject) => {
     const output = createWriteStream(outputFilePath);
-    const archive = archiver('zip', { zlib: { level: 9 } });
+    const archive = new ZipArchive({ zlib: { level: 9 } });
 
     let settled = false;
     const fail = (err: Error) => {
