@@ -11,4 +11,9 @@ if (module.enableCompileCache && !process.env.NODE_DISABLE_COMPILE_CACHE) {
 }
 
 process.env.__SKILL_PACKER_DEFAULT = 'pack';
-await import('../dist/cli.mjs');
+const { main } = await import('../dist/cli.mjs');
+main().catch((err) => {
+  const message = err instanceof Error ? err.message : 'Unknown error';
+  console.error(`Fatal: ${message}`);
+  process.exit(1);
+});

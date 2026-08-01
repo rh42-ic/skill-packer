@@ -514,13 +514,6 @@ export async function main(): Promise<void> {
   }
 }
 
-// Only auto-run when executed directly, not when imported (e.g., by tests)
-const cliFilePath = fileURLToPath(import.meta.url).replace(/\\/g, '/');
-const execPath = (process.argv[1] || '').replace(/\\/g, '/');
-if (execPath === cliFilePath || execPath.endsWith('/cli.mjs') || execPath.endsWith('/cli.js') || execPath.endsWith('/pack-skill.mjs')) {
-  main().catch((err) => {
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    console.error(`Fatal: ${message}`);
-    process.exit(1);
-  });
-}
+// main() is called explicitly by bin entry points (bin/cli.mjs, bin/pack-skill.mjs)
+// This avoids relying on process.argv[1] which varies by package manager
+// (e.g. npm symlinks vs pnpm wrappers vs bun shims)
