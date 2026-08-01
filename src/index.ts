@@ -9,7 +9,10 @@ export { parseSource, parseOwnerRepo, getOwnerRepo } from './source-parser.ts';
 export { cloneRepo, cleanupTempDir, GitCloneError } from './git.ts';
 
 // Skill discovery & metadata
-export { discoverSkills, parseSkillMd, isSubpathSafe, shouldInstallInternalSkills, getSkillDisplayName } from './skills.ts';
+export { discoverSkills, parseSkillMd, isSubpathSafe, shouldInstallInternalSkills, getSkillDisplayName, filterSkills } from './skills.ts';
+
+// Sanitization
+export { sanitizeMetadata, stripTerminalEscapes } from './sanitize.ts';
 
 // Packing
 export { packSkill, shouldExclude, formatBytes } from './pack.ts';

@@ -1,6 +1,7 @@
 import { readdir, readFile, stat } from 'fs/promises';
 import { join, dirname, resolve, normalize, sep, basename } from 'path';
 import matter from 'gray-matter';
+import { sanitizeMetadata } from './sanitize.ts';
 import type { Skill, DiscoverSkillsOptions } from './types.ts';
 
 const SKIP_DIRS = ['node_modules', '.git', 'dist', 'build', '__pycache__'];
@@ -42,8 +43,8 @@ export async function parseSkillMd(
     }
 
     return {
-      name: data.name,
-      description: data.description,
+      name: sanitizeMetadata(data.name),
+      description: sanitizeMetadata(data.description),
       path: dirname(skillMdPath),
       rawContent: content,
       metadata: data.metadata,
@@ -162,4 +163,15 @@ export async function discoverSkills(
 
 export function getSkillDisplayName(skill: Skill): string {
   return skill.name || basename(skill.path);
+}
+
+export function filterSkills(skills: Skill[], inputNames: string[]): Skill[] {
+  const normalizedInputs = inputNames.map((n) => n.toLowerCase());
+
+  return skills.filter((skill) => {
+    const name = skill.name.toLowerCase();
+    const displayName = getSkillDisplayName(skill).toLowerCase();
+
+    return normalizedInputs.some((input) => input === name || input === displayName);
+  });
 }
