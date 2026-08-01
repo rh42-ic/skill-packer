@@ -490,6 +490,42 @@ describe('CLI', () => {
       expect(output).toContain('No skills found');
     });
 
+    it('continues packing remaining skills when one fails, prints summary, and exits 1', async () => {
+      mockPackSkill
+        .mockRejectedValueOnce(new Error('Validation failed'))
+        .mockResolvedValueOnce({
+          outputPath: '/output/skill-b.skill',
+          skillName: 'skill-b',
+          filesIncluded: 7,
+          filesExcluded: [],
+          size: 2048,
+        });
+
+      const logSpy = vi.spyOn(console, 'log');
+      await assertExits(() => runPack(['user/repo', '--all']), 1);
+
+      // Both skills attempted (skip-and-continue, not fail-fast)
+      expect(mockPackSkill).toHaveBeenCalledTimes(2);
+      const output = logSpy.mock.calls.map(c => c.join(' ')).join('\n');
+      const stripped = output.replace(/\x1B\[\d+m/g, '');
+      // Failed skill noted inline, remaining skill still packed
+      expect(stripped).toContain('Failed: skill-a');
+      expect(stripped).toContain('Packed:');
+      expect(stripped).toContain('/output/skill-b.skill');
+      // Summary printed with counts
+      expect(stripped).toContain('1 succeeded, 1 failed');
+    });
+
+    it('prints full-success summary and does not exit 1 when all skills pack', async () => {
+      const logSpy = vi.spyOn(console, 'log');
+      await runPack(['user/repo', '--all']);
+
+      const output = logSpy.mock.calls.map(c => c.join(' ')).join('\n');
+      const stripped = output.replace(/\x1B\[\d+m/g, '');
+      expect(stripped).toContain('2 succeeded, 0 failed');
+      expect(process.exit).not.toHaveBeenCalled();
+    });
+
     it('prints verbose banners and suppresses per-file output in verbose mode', async () => {
       const logSpy = vi.spyOn(console, 'log');
       await runPack(['user/repo', '--all', '--verbose']);

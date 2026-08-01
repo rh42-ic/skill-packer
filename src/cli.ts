@@ -245,19 +245,39 @@ export async function runPack(args: string[]): Promise<void> {
         console.log(`${pc.green('Found')} ${pc.yellow(skills.length.toString())} skill${skills.length !== 1 ? 's' : ''}\n`);
       }
 
-      for (const skill of skills) {
-        const result = await packSkill({
-          skillPath: skill.path,
-          outputPath: outputDir,
-          force,
-          validate,
-          verbose,
-          strict,
-        });
+      let succeeded = 0;
+      const failures: Array<{ name: string; message: string }> = [];
 
-        if (!verbose) {
-          console.log(`${pc.green('✓')} Packed: ${pc.cyan(result.outputPath)} (${formatBytes(result.size)})`);
+      for (const skill of skills) {
+        try {
+          const result = await packSkill({
+            skillPath: skill.path,
+            outputPath: outputDir,
+            force,
+            validate,
+            verbose,
+            strict,
+          });
+
+          succeeded++;
+          if (!verbose) {
+            console.log(`${pc.green('✓')} Packed: ${pc.cyan(result.outputPath)} (${formatBytes(result.size)})`);
+          }
+        } catch (e) {
+          const message = e instanceof Error ? e.message : 'Unknown error';
+          failures.push({ name: skill.name, message });
+          console.log(pc.red(`✗ Failed: ${skill.name} (${message})`));
         }
+      }
+
+      const failureCount = failures.length;
+      const summary = failureCount > 0
+        ? `${succeeded} succeeded, ${pc.red(`${failureCount} failed`)}`
+        : `${pc.green(succeeded.toString())} succeeded, ${failureCount} failed`;
+      console.log(summary);
+
+      if (failureCount > 0) {
+        process.exit(1);
       }
 
       return; // Skip the single-pack path below
