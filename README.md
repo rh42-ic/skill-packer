@@ -27,9 +27,9 @@ npx skill-packer pack ./my-skill -o ./dist -f           # output dir + overwrite
 | `-s, --skill <name>` | Skill name (required for remote URLs unless `--all`) |
 | `-o, --output <dir>` | Output directory (default: cwd) |
 | `-f, --force` | Overwrite existing file |
-| `--all` | Pack all discovered skills in the repository |
+| `-a, --all` | Pack all discovered skills in the repository |
 | `--no-validate` | Skip validation |
-| `--strict` | Treat unknown frontmatter keys as errors |
+| `--strict` | Strict validation: all format rules are errors (see below) |
 | `-v, --verbose` | Verbose output |
 
 Validation runs automatically before packing. In silent mode (default), each packed file prints `✓ Packed: {path} ({size})`. Use `-v` for detailed per-file output. Unknown frontmatter keys produce warnings by default — use `--strict` to fail on them.
@@ -63,16 +63,16 @@ npx skill-packer check ./my-skill --strict
 
 | Field | Required | Constraints |
 |-------|:--------:|-------------|
-| `name` | yes | kebab-case (`a-z`, `0-9`, `-`), max 64 chars |
+| `name` | yes | kebab-case (`a-z`, `0-9`, `-`), max 64 chars, no leading/trailing/consecutive hyphens |
 | `description` | yes | max 1024 chars, no `<>` |
 | `license` | no | — |
 | `compatibility` | no | max 500 chars |
 | `metadata` | no | — |
 | `allowed-tools` | no | — |
 
-Unknown fields → warning (default) or error (`--strict`).
+**Non-strict mode (default):** `name` max 64, kebab-case, hyphen rules, `description` max 1024, and `compatibility` max 500 are **warnings** (validity unaffected). Hard ceilings still apply: `name` >256, `description` >4096, `compatibility` >4096 are errors.
 
-Validation rules follow the [skill-creator](https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md) specification.
+**Strict mode (`--strict`):** all format rules are errors at their lower thresholds. Unknown frontmatter keys are also errors (vs warnings by default).
 
 ## Development
 

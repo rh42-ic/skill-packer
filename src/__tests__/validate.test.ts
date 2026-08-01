@@ -72,9 +72,20 @@ body`;
     expect(result.errors.some((e) => e.includes('Name must be a string'))).toBe(true);
   });
 
-  it('rejects name longer than 64 characters', () => {
+  it('warns about name longer than 64 characters (non-strict)', () => {
     const content = `---
 name: ${'a'.repeat(65)}
+description: A skill
+---
+body`;
+    const result = validateSkillMd(content);
+    expect(result.valid).toBe(true);
+    expect(result.warnings.some((w) => w.includes('too long'))).toBe(true);
+  });
+
+  it('rejects name longer than 256 characters (non-strict ceiling)', () => {
+    const content = `---
+name: ${'a'.repeat(257)}
 description: A skill
 ---
 body`;
@@ -83,59 +94,92 @@ body`;
     expect(result.errors.some((e) => e.includes('too long'))).toBe(true);
   });
 
-  it('rejects name with uppercase letters', () => {
+  it('rejects name longer than 64 characters (strict)', () => {
+    const content = `---
+name: ${'a'.repeat(65)}
+description: A skill
+---
+body`;
+    const result = validateSkillMd(content, { strict: true });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('too long'))).toBe(true);
+  });
+
+  it('warns about name with uppercase letters (non-strict)', () => {
     const content = `---
 name: My-Skill
 description: A skill
 ---
 body`;
     const result = validateSkillMd(content);
+    expect(result.valid).toBe(true);
+    expect(result.warnings.some((w) => w.includes('kebab-case'))).toBe(true);
+  });
+
+  it('rejects name with uppercase letters (strict)', () => {
+    const content = `---
+name: My-Skill
+description: A skill
+---
+body`;
+    const result = validateSkillMd(content, { strict: true });
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes('kebab-case'))).toBe(true);
   });
 
-  it('rejects name with special characters', () => {
+  it('warns about name with special characters (non-strict)', () => {
     const content = `---
 name: my_skill!
 description: A skill
 ---
 body`;
     const result = validateSkillMd(content);
-    expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => e.includes('kebab-case'))).toBe(true);
+    expect(result.valid).toBe(true);
+    expect(result.warnings.some((w) => w.includes('kebab-case'))).toBe(true);
   });
 
-  it('rejects name starting with hyphen', () => {
+  it('warns about name starting with hyphen (non-strict)', () => {
     const content = `---
 name: "-my-skill"
 description: A skill
 ---
 body`;
     const result = validateSkillMd(content);
+    expect(result.valid).toBe(true);
+    expect(result.warnings.some((w) => w.includes('start/end with hyphen'))).toBe(true);
+  });
+
+  it('rejects name starting with hyphen (strict)', () => {
+    const content = `---
+name: "-my-skill"
+description: A skill
+---
+body`;
+    const result = validateSkillMd(content, { strict: true });
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes('start/end with hyphen'))).toBe(true);
   });
 
-  it('rejects name ending with hyphen', () => {
+  it('warns about name ending with hyphen (non-strict)', () => {
     const content = `---
 name: my-skill-
 description: A skill
 ---
 body`;
     const result = validateSkillMd(content);
-    expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => e.includes('start/end with hyphen'))).toBe(true);
+    expect(result.valid).toBe(true);
+    expect(result.warnings.some((w) => w.includes('start/end with hyphen'))).toBe(true);
   });
 
-  it('rejects name with consecutive hyphens', () => {
+  it('warns about name with consecutive hyphens (non-strict)', () => {
     const content = `---
 name: my--skill
 description: A skill
 ---
 body`;
     const result = validateSkillMd(content);
-    expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => e.includes('consecutive hyphens'))).toBe(true);
+    expect(result.valid).toBe(true);
+    expect(result.warnings.some((w) => w.includes('consecutive hyphens'))).toBe(true);
   });
 
   it('accepts name with digits and hyphens', () => {
@@ -160,13 +204,35 @@ body`;
     expect(result.errors.some((e) => e.includes('angle brackets'))).toBe(true);
   });
 
-  it('rejects description longer than 1024 characters', () => {
+  it('warns about description longer than 1024 characters (non-strict)', () => {
     const content = `---
 name: my-skill
 description: ${'x'.repeat(1025)}
 ---
 body`;
     const result = validateSkillMd(content);
+    expect(result.valid).toBe(true);
+    expect(result.warnings.some((w) => w.includes('too long'))).toBe(true);
+  });
+
+  it('rejects description longer than 4096 characters (non-strict ceiling)', () => {
+    const content = `---
+name: my-skill
+description: ${'x'.repeat(4097)}
+---
+body`;
+    const result = validateSkillMd(content);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('too long'))).toBe(true);
+  });
+
+  it('rejects description longer than 1024 characters (strict)', () => {
+    const content = `---
+name: my-skill
+description: ${'x'.repeat(1025)}
+---
+body`;
+    const result = validateSkillMd(content, { strict: true });
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes('too long'))).toBe(true);
   });
@@ -195,7 +261,7 @@ body`;
     expect(result.errors.some((e) => e.includes('Compatibility must be a string'))).toBe(true);
   });
 
-  it('rejects compatibility longer than 500 characters', () => {
+  it('warns about compatibility longer than 500 characters (non-strict)', () => {
     const content = `---
 name: my-skill
 description: A skill
@@ -203,6 +269,30 @@ compatibility: ${'x'.repeat(501)}
 ---
 body`;
     const result = validateSkillMd(content);
+    expect(result.valid).toBe(true);
+    expect(result.warnings.some((w) => w.includes('Compatibility is too long'))).toBe(true);
+  });
+
+  it('rejects compatibility longer than 4096 characters (non-strict ceiling)', () => {
+    const content = `---
+name: my-skill
+description: A skill
+compatibility: ${'x'.repeat(4097)}
+---
+body`;
+    const result = validateSkillMd(content);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('Compatibility is too long'))).toBe(true);
+  });
+
+  it('rejects compatibility longer than 500 characters (strict)', () => {
+    const content = `---
+name: my-skill
+description: A skill
+compatibility: ${'x'.repeat(501)}
+---
+body`;
+    const result = validateSkillMd(content, { strict: true });
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes('Compatibility is too long'))).toBe(true);
   });

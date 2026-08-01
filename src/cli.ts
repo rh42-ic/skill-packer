@@ -74,7 +74,7 @@ function showBanner(): void {
   console.log(`  ${TEXT}-v, --verbose${RESET}       ${DIM}Show detailed output${RESET}`);
   console.log(`  ${TEXT}-j, --json${RESET}           ${DIM}Output as JSON${RESET}`);
   console.log(`  ${TEXT}--full-depth${RESET}         ${DIM}Search all subdirectories${RESET}`);
-  console.log(`  ${TEXT}--all${RESET}                ${DIM}Pack all discovered skills${RESET}`);
+  console.log(`  ${TEXT}-a, --all${RESET}                ${DIM}Pack all discovered skills${RESET}`);
   console.log();
 }
 
@@ -93,7 +93,7 @@ ${BOLD}Pack Options:${RESET}
   -f, --force            Overwrite existing .skill file
   --no-validate         Skip validation before packing
   --strict               Treat unknown frontmatter keys as errors
-  --all                   Pack all discovered skills in the repository
+  -a, --all               Pack all discovered skills in the repository
   -v, --verbose          Show detailed output
 
 ${BOLD}Check Options:${RESET}
@@ -178,7 +178,7 @@ export async function runPack(args: string[]): Promise<void> {
       verbose = true;
     } else if (arg === '--strict') {
       strict = true;
-    } else if (arg === '--all') {
+    } else if (arg === '--all' || arg === '-a') {
       all = true;
     }
   }
@@ -376,7 +376,7 @@ export async function runList(args: string[]): Promise<void> {
         verbose = true;
       } else if (arg === '--full-depth') {
         fullDepth = true;
-      } else if (arg === '--all') {
+      } else if (arg === '--all' || arg === '-a') {
         // supported for consistency, same as --full-depth
         fullDepth = true;
       }

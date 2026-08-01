@@ -61,14 +61,20 @@ export function validateSkillMd(content: string, opts?: ValidateOptions): Valida
   if (typeof name === 'string') {
     const trimmedName = name.trim();
     if (trimmedName) {
-      if (trimmedName.length > 64) {
-        errors.push(`Name is too long (${trimmedName.length} characters). Maximum is 64 characters.`);
+      const nameLenError = trimmedName.length > (strict ? 64 : 256);
+      const nameLenWarn = !strict && trimmedName.length > 64 && trimmedName.length <= 256;
+      if (nameLenError) {
+        errors.push(`Name is too long (${trimmedName.length} characters). Maximum is ${strict ? 64 : 256} characters.`);
+      } else if (nameLenWarn) {
+        warnings.push(`Name is too long (${trimmedName.length} characters). Maximum is 64 characters.`);
       }
       if (!/^[a-z0-9-]+$/.test(trimmedName)) {
-        errors.push(`Name '${trimmedName}' should be kebab-case (lowercase letters, digits, and hyphens only)`);
+        const msg = `Name '${trimmedName}' should be kebab-case (lowercase letters, digits, and hyphens only)`;
+        if (strict) errors.push(msg); else warnings.push(msg);
       }
       if (trimmedName.startsWith('-') || trimmedName.endsWith('-') || trimmedName.includes('--')) {
-        errors.push(`Name '${trimmedName}' cannot start/end with hyphen or contain consecutive hyphens`);
+        const msg = `Name '${trimmedName}' cannot start/end with hyphen or contain consecutive hyphens`;
+        if (strict) errors.push(msg); else warnings.push(msg);
       }
     }
   } else if (name !== undefined) {
@@ -82,8 +88,12 @@ export function validateSkillMd(content: string, opts?: ValidateOptions): Valida
       if (trimmedDesc.includes('<') || trimmedDesc.includes('>')) {
         errors.push('Description cannot contain angle brackets (< or >)');
       }
-      if (trimmedDesc.length > 1024) {
-        errors.push(`Description is too long (${trimmedDesc.length} characters). Maximum is 1024 characters.`);
+      const descLenError = trimmedDesc.length > (strict ? 1024 : 4096);
+      const descLenWarn = !strict && trimmedDesc.length > 1024 && trimmedDesc.length <= 4096;
+      if (descLenError) {
+        errors.push(`Description is too long (${trimmedDesc.length} characters). Maximum is ${strict ? 1024 : 4096} characters.`);
+      } else if (descLenWarn) {
+        warnings.push(`Description is too long (${trimmedDesc.length} characters). Maximum is 1024 characters.`);
       }
     }
   } else if (description !== undefined) {
@@ -94,8 +104,14 @@ export function validateSkillMd(content: string, opts?: ValidateOptions): Valida
   if (compatibility !== undefined && compatibility !== null) {
     if (typeof compatibility !== 'string') {
       errors.push(`Compatibility must be a string, got ${typeof compatibility}`);
-    } else if (compatibility.length > 500) {
-      errors.push(`Compatibility is too long (${compatibility.length} characters). Maximum is 500 characters.`);
+    } else {
+      const compatLenError = compatibility.length > (strict ? 500 : 4096);
+      const compatLenWarn = !strict && compatibility.length > 500 && compatibility.length <= 4096;
+      if (compatLenError) {
+        errors.push(`Compatibility is too long (${compatibility.length} characters). Maximum is ${strict ? 500 : 4096} characters.`);
+      } else if (compatLenWarn) {
+        warnings.push(`Compatibility is too long (${compatibility.length} characters). Maximum is 500 characters.`);
+      }
     }
   }
 

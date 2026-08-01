@@ -395,6 +395,16 @@ describe('CLI', () => {
       expect(mockPackSkill).toHaveBeenCalledTimes(2);
     });
 
+    it('accepts -a as shorthand for --all', async () => {
+      await runPack(['user/repo', '-a']);
+
+      expect(mockCloneRepo).toHaveBeenCalled();
+      expect(mockDiscoverSkills).toHaveBeenCalledWith(
+        '/tmp/cloned-repo', undefined, { fullDepth: true }
+      );
+      expect(mockPackSkill).toHaveBeenCalledTimes(2);
+    });
+
     it('passes each skill.path as skillPath to packSkill', async () => {
       await runPack(['user/repo', '--all']);
 
