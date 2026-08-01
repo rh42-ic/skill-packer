@@ -47,9 +47,30 @@ function createGitClient() {
       'filter.lfs.clean=',
       'filter.lfs.process=',
     ],
+    // Preserve environment variables for credentials, configuration, SSH,
+    // proxies, editors, pagers, and related Git tooling. These allowances
+    // apply only to trusted env vars already controlled by the caller.
+    // This client is used only for clone with fixed options.
     unsafe: {
-      allowUnsafeFilter: true,
+      allowUnsafeAlias: true,
       allowUnsafeAskPass: true,
+      allowUnsafeConfigEnvCount: true,
+      allowUnsafeConfigPaths: true,
+      allowUnsafeCredentialHelper: true,
+      allowUnsafeDiffExternal: true,
+      allowUnsafeDiffTextConv: true,
+      allowUnsafeEditor: true,
+      allowUnsafeFilter: true,
+      allowUnsafeFsMonitor: true,
+      allowUnsafeGpgProgram: true,
+      allowUnsafeGitProxy: true,
+      allowUnsafeHooksPath: true,
+      allowUnsafeMergeDriver: true,
+      allowUnsafePack: true,
+      allowUnsafePager: true,
+      allowUnsafeProtocolOverride: true,
+      allowUnsafeSshCommand: true,
+      allowUnsafeTemplateDir: true,
     },
   });
 
