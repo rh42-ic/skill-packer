@@ -18,19 +18,21 @@ npx skill-packer <command> [options]
 npx skill-packer pack ./my-skill                        # local
 npx skill-packer pack anthropics/skills -s skill-creator # GitHub shorthand
 npx skill-packer pack https://github.com/anthropics/skills -s skill-creator
+npx skill-packer pack https://github.com/anthropics/skills --all  # pack all skills
 npx skill-packer pack ./my-skill -o ./dist -f           # output dir + overwrite
 ```
 
 | Option | Description |
 |--------|-------------|
-| `-s, --skill <name>` | Skill name (required for remote URLs) |
+| `-s, --skill <name>` | Skill name (required for remote URLs unless `--all`) |
 | `-o, --output <dir>` | Output directory (default: cwd) |
 | `-f, --force` | Overwrite existing file |
+| `--all` | Pack all discovered skills in the repository |
 | `--no-validate` | Skip validation |
 | `--strict` | Treat unknown frontmatter keys as errors |
 | `-v, --verbose` | Verbose output |
 
-Validation runs automatically before packing. Unknown frontmatter keys produce warnings by default — use `--strict` to fail on them.
+Validation runs automatically before packing. In silent mode (default), each packed file prints `✓ Packed: {path} ({size})`. Use `-v` for detailed per-file output. Unknown frontmatter keys produce warnings by default — use `--strict` to fail on them.
 
 ### `list [source]`
 

@@ -49,6 +49,7 @@ function createGitClient() {
     ],
     unsafe: {
       allowUnsafeFilter: true,
+      allowUnsafeAskPass: true,
     },
   });
 

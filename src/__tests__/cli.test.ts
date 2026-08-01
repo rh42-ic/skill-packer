@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // Mock the heavy dependencies
 vi.mock('../pack.ts', () => ({
   packSkill: vi.fn(),
+  formatBytes: vi.fn((bytes: number) => `${bytes} B`),
 }));
 
 vi.mock('../list.ts', () => ({
@@ -338,6 +339,197 @@ describe('CLI', () => {
       mockDiscoverSkills.mockResolvedValue([]);
 
       await assertExits(() => runPack(['user/repo', '--skill', 'any']), 1);
+    });
+
+    // --verbose should suppress the silent "Packed:" line for single skill
+    it('suppresses silent-mode "Packed:" line when --verbose is set', async () => {
+      mockParseSource.mockReturnValue({
+        type: 'local',
+        url: '/resolved/path',
+        localPath: '/resolved/path',
+      });
+      mockPackSkill.mockResolvedValue({
+        outputPath: '/output/test-skill.skill',
+        skillName: 'test-skill',
+        filesIncluded: 5,
+        filesExcluded: [],
+        size: 1024,
+      });
+
+      const logSpy = vi.spyOn(console, 'log');
+      await runPack(['./my-skill', '--verbose']);
+
+      const output = logSpy.mock.calls.map(c => c.join(' ')).join('\n');
+      // Verbose mode should not print the terse "Packed:" summary
+      expect(output).not.toMatch(/✓ Packed:/);
+    });
+  });
+
+  describe('--all batch mode', () => {
+    beforeEach(() => {
+      mockParseSource.mockReturnValue({
+        type: 'github',
+        url: 'https://github.com/user/repo.git',
+      });
+      mockCloneRepo.mockResolvedValue('/tmp/cloned-repo');
+      mockDiscoverSkills.mockResolvedValue([
+        { name: 'skill-a', description: 'A', path: '/tmp/repo/skills/skill-a' },
+        { name: 'skill-b', description: 'B', path: '/tmp/repo/skills/skill-b' },
+      ]);
+      mockPackSkill.mockResolvedValue({
+        outputPath: '/output/test-skill.skill',
+        skillName: 'test-skill',
+        filesIncluded: 5,
+        filesExcluded: [],
+        size: 1024,
+      });
+    });
+
+    it('clones repo and calls discoverSkills with fullDepth: true', async () => {
+      await runPack(['user/repo', '--all']);
+
+      expect(mockCloneRepo).toHaveBeenCalled();
+      expect(mockDiscoverSkills).toHaveBeenCalledWith(
+        '/tmp/cloned-repo', undefined, { fullDepth: true }
+      );
+      expect(mockPackSkill).toHaveBeenCalledTimes(2);
+    });
+
+    it('passes each skill.path as skillPath to packSkill', async () => {
+      await runPack(['user/repo', '--all']);
+
+      expect(mockPackSkill).toHaveBeenNthCalledWith(1, expect.objectContaining({
+        skillPath: '/tmp/repo/skills/skill-a',
+      }));
+      expect(mockPackSkill).toHaveBeenNthCalledWith(2, expect.objectContaining({
+        skillPath: '/tmp/repo/skills/skill-b',
+      }));
+    });
+
+    it('prints per-file "Packed:" line in silent mode', async () => {
+      mockPackSkill
+        .mockResolvedValueOnce({
+          outputPath: '/output/skill-a.skill',
+          skillName: 'skill-a',
+          filesIncluded: 3,
+          filesExcluded: [],
+          size: 512,
+        })
+        .mockResolvedValueOnce({
+          outputPath: '/output/skill-b.skill',
+          skillName: 'skill-b',
+          filesIncluded: 7,
+          filesExcluded: [],
+          size: 2048,
+        });
+
+      const logSpy = vi.spyOn(console, 'log');
+      await runPack(['user/repo', '--all']);
+
+      const output = logSpy.mock.calls.map(c => c.join(' ')).join('\n');
+      expect(output).toContain('Packed:');
+      expect(output).toContain('/output/skill-a.skill');
+      expect(output).toContain('/output/skill-b.skill');
+    });
+
+    it('passes --output to every packSkill call', async () => {
+      await runPack(['user/repo', '--all', '--output', '/custom']);
+
+      expect(mockPackSkill).toHaveBeenCalledTimes(2);
+      expect(mockPackSkill).toHaveBeenNthCalledWith(1, expect.objectContaining({
+        outputPath: '/custom',
+      }));
+      expect(mockPackSkill).toHaveBeenNthCalledWith(2, expect.objectContaining({
+        outputPath: '/custom',
+      }));
+    });
+
+    it('passes --force and --no-validate to every packSkill call', async () => {
+      await runPack(['user/repo', '--all', '--force', '--no-validate']);
+
+      expect(mockPackSkill).toHaveBeenCalledTimes(2);
+      expect(mockPackSkill).toHaveBeenNthCalledWith(1, expect.objectContaining({
+        force: true,
+        validate: false,
+      }));
+      expect(mockPackSkill).toHaveBeenNthCalledWith(2, expect.objectContaining({
+        force: true,
+        validate: false,
+      }));
+    });
+
+    it('passes --strict to every packSkill call', async () => {
+      await runPack(['user/repo', '--all', '--strict']);
+
+      expect(mockPackSkill).toHaveBeenCalledTimes(2);
+      expect(mockPackSkill).toHaveBeenNthCalledWith(1, expect.objectContaining({
+        strict: true,
+      }));
+      expect(mockPackSkill).toHaveBeenNthCalledWith(2, expect.objectContaining({
+        strict: true,
+      }));
+    });
+
+    it('exits with code 1 when no skills are discovered', async () => {
+      mockDiscoverSkills.mockResolvedValue([]);
+
+      const logSpy = vi.spyOn(console, 'log');
+      await assertExits(() => runPack(['user/repo', '--all']), 1);
+
+      const output = logSpy.mock.calls.map(c => c.join(' ')).join('\n');
+      expect(output).toContain('No skills found');
+    });
+
+    it('prints verbose banners and suppresses per-file output in verbose mode', async () => {
+      const logSpy = vi.spyOn(console, 'log');
+      await runPack(['user/repo', '--all', '--verbose']);
+
+      const output = logSpy.mock.calls.map(c => c.join(' ')).join('\n');
+      expect(output).toContain('Packing all skills');
+      // Strip ANSI escape codes before matching (verbose output is colored)
+      const stripped = output.replace(/\x1B\[\d+m/g, '');
+      expect(stripped).toMatch(/Found 2 skills/);
+      // Verbose mode omits the per-file "Packed:" line
+      expect(output).not.toContain('Packed:');
+    });
+
+    it('skips --all path when --skill is also specified', async () => {
+      await runPack(['user/repo', '--all', '--skill', 'skill-a']);
+
+      // --skill path calls discoverSkills once (without fullDepth)
+      expect(mockDiscoverSkills).toHaveBeenCalledTimes(1);
+      expect(mockDiscoverSkills).not.toHaveBeenCalledWith(
+        expect.anything(), undefined, { fullDepth: true }
+      );
+      // Only one packSkill call for the matched skill
+      expect(mockPackSkill).toHaveBeenCalledTimes(1);
+      expect(mockPackSkill).toHaveBeenCalledWith(expect.objectContaining({
+        skillPath: '/tmp/repo/skills/skill-a',
+      }));
+    });
+
+    it('works with local source in --all mode', async () => {
+      mockParseSource.mockReturnValue({
+        type: 'local',
+        url: '/resolved/path',
+        localPath: '/resolved/path',
+      });
+      mockDiscoverSkills.mockResolvedValue([
+        { name: 'local-skill', description: 'Local', path: '/resolved/path/skills/local-skill' },
+      ]);
+
+      await runPack(['./skills-dir', '--all']);
+
+      // No clone for local source
+      expect(mockCloneRepo).not.toHaveBeenCalled();
+      // discoverSkills called on the local path
+      expect(mockDiscoverSkills).toHaveBeenCalledWith(
+        '/resolved/path', undefined, { fullDepth: true }
+      );
+      expect(mockPackSkill).toHaveBeenCalledTimes(1);
+      expect(mockPackSkill).toHaveBeenCalledWith(expect.objectContaining({
+        skillPath: '/resolved/path/skills/local-skill',
+      }));
     });
   });
 });

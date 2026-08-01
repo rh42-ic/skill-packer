@@ -245,7 +245,7 @@ export async function runPack(args: string[]): Promise<void> {
       }
 
       for (const skill of skills) {
-        await packSkill({
+        const result = await packSkill({
           skillPath: skill.path,
           outputPath: outputDir,
           force,
@@ -253,10 +253,10 @@ export async function runPack(args: string[]): Promise<void> {
           verbose,
           strict,
         });
-      }
 
-      if (!verbose) {
-        console.log(`${pc.green('✓')} Packed ${skills.length} skill${skills.length !== 1 ? 's' : ''}`);
+        if (!verbose) {
+          console.log(`${pc.green('✓')} Packed: ${pc.cyan(result.outputPath)} (${formatBytes(result.size)})`);
+        }
       }
 
       return; // Skip the single-pack path below

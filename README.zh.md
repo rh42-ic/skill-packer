@@ -18,19 +18,21 @@ npx skill-packer <command> [options]
 npx skill-packer pack ./my-skill                        # 本地
 npx skill-packer pack anthropics/skills -s skill-creator # GitHub 简写
 npx skill-packer pack https://github.com/anthropics/skills -s skill-creator
+npx skill-packer pack https://github.com/anthropics/skills --all  # 打包全部 skill
 npx skill-packer pack ./my-skill -o ./dist -f           # 输出目录 + 覆盖
 ```
 
 | 选项 | 说明 |
 |------|------|
-| `-s, --skill <name>` | skill 名称（远程 URL 时必需） |
+| `-s, --skill <name>` | skill 名称（远程 URL 时必需，`--all` 除外） |
 | `-o, --output <dir>` | 输出目录（默认：当前目录） |
 | `-f, --force` | 覆盖已有文件 |
+| `--all` | 打包仓库中发现的所有 skill |
 | `--no-validate` | 跳过验证 |
 | `--strict` | 未知 frontmatter 字段视为错误 |
 | `-v, --verbose` | 详细输出 |
 
-打包前自动验证。未知 frontmatter 字段默认仅警告，加 `--strict` 则视为错误。
+打包前自动验证。静默模式（默认）下每个文件打印 `✓ Packed: {路径} ({大小})`。加 `-v` 查看详细的逐文件输出。未知 frontmatter 字段默认仅警告，加 `--strict` 则视为错误。
 
 ### `list [source]`
 
