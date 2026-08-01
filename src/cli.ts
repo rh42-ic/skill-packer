@@ -10,6 +10,7 @@ import { packSkill, formatBytes } from './pack.ts';
 import { validateSkillPath } from './validate.ts';
 import { discoverSkills } from './skills.ts';
 import { cloneRepo, cleanupTempDir } from './git.ts';
+import type { Skill } from './types.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -262,6 +263,78 @@ export async function runPack(args: string[]): Promise<void> {
       return; // Skip the single-pack path below
     }
 
+    // No --skill and no --all for a remote source: discover and let user pick interactively
+    if (!skillFilter && parsed.type !== 'local') {
+      const skills = await discoverSkills(skillPath, undefined, { fullDepth: true });
+
+      if (skills.length === 0) {
+        console.log(pc.red(`Error: No skills found`));
+        process.exit(1);
+      }
+
+      if (skills.length === 1) {
+        const result = await packSkill({
+          skillPath: skills[0]!.path,
+          outputPath: outputDir,
+          force,
+          validate,
+          verbose,
+          strict,
+        });
+
+        if (!verbose) {
+          console.log(`${pc.green('✓')} Packed: ${pc.cyan(result.outputPath)} (${formatBytes(result.size)})`);
+        }
+        return;
+      }
+
+      // Multiple skills: interactive prompt (or error in non-TTY environments)
+      if (!process.stdin.isTTY) {
+        console.log(pc.red(`Error: Multiple skills found. Use --skill or --all to select.`));
+        console.log(pc.dim(`Available: ${skills.map(s => s.name).join(', ')}`));
+        process.exit(1);
+      }
+
+      const { searchMultiselect, cancelSymbol } = await import('./prompts/search-multiselect.ts');
+
+      const selected = await searchMultiselect<Skill>({
+        message: 'Select skills to pack',
+        items: skills.map(s => ({
+          value: s,
+          label: s.name,
+          detail: s.description,
+          group: s.pluginName,
+        })),
+        required: true,
+        searchable: true,
+        showDetail: true,
+        showSelectedSummary: true,
+      });
+
+      if (typeof selected === 'symbol') {
+        console.log(pc.dim('Cancelled'));
+        process.exit(0);
+      }
+
+      for (const skill of selected) {
+        const result = await packSkill({
+          skillPath: skill.path,
+          outputPath: outputDir,
+          force,
+          validate,
+          verbose,
+          strict,
+        });
+
+        if (!verbose) {
+          console.log(`${pc.green('✓')} Packed: ${pc.cyan(result.outputPath)} (${formatBytes(result.size)})`);
+        }
+      }
+
+      return;
+    }
+
+    // --skill path: pack the resolved single skill
     const result = await packSkill({
       skillPath,
       outputPath: outputDir,

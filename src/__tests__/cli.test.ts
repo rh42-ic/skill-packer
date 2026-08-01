@@ -532,4 +532,69 @@ describe('CLI', () => {
       }));
     });
   });
+
+  describe('interactive selection (no --skill / --all, remote source)', () => {
+    beforeEach(() => {
+      mockParseSource.mockReturnValue({
+        type: 'github',
+        url: 'https://github.com/user/repo.git',
+      });
+      mockCloneRepo.mockResolvedValue('/tmp/cloned-repo');
+      mockPackSkill.mockResolvedValue({
+        outputPath: '/output/test-skill.skill',
+        skillName: 'test-skill',
+        filesIncluded: 5,
+        filesExcluded: [],
+        size: 1024,
+      });
+    });
+
+    it('auto-packs when a single skill is discovered', async () => {
+      mockDiscoverSkills.mockResolvedValue([
+        { name: 'only-skill', description: 'Only', path: '/tmp/repo/skills/only-skill' },
+      ]);
+
+      await runPack(['user/repo']);
+
+      expect(mockDiscoverSkills).toHaveBeenCalledWith(
+        '/tmp/cloned-repo', undefined, { fullDepth: true }
+      );
+      expect(mockPackSkill).toHaveBeenCalledTimes(1);
+      expect(mockPackSkill).toHaveBeenCalledWith(expect.objectContaining({
+        skillPath: '/tmp/repo/skills/only-skill',
+      }));
+    });
+
+    it('exits with error when no skills found', async () => {
+      mockDiscoverSkills.mockResolvedValue([]);
+
+      const logSpy = vi.spyOn(console, 'log');
+      await assertExits(() => runPack(['user/repo']), 1);
+
+      expect(logSpy.mock.calls.map(c => c.join(' ')).join('\n')).toContain('No skills found');
+    });
+
+    it('exits with error listing available skills in non-TTY with multiple skills', async () => {
+      // Simulate non-TTY by removing isTTY
+      const originalTTY = process.stdin.isTTY;
+      Object.defineProperty(process.stdin, 'isTTY', { value: undefined, configurable: true });
+
+      mockDiscoverSkills.mockResolvedValue([
+        { name: 'skill-a', description: 'A', path: '/tmp/a' },
+        { name: 'skill-b', description: 'B', path: '/tmp/b' },
+      ]);
+
+      const logSpy = vi.spyOn(console, 'log');
+      try {
+        await assertExits(() => runPack(['user/repo']), 1);
+      } finally {
+        Object.defineProperty(process.stdin, 'isTTY', { value: originalTTY, configurable: true });
+      }
+
+      const output = logSpy.mock.calls.map(c => c.join(' ')).join('\n');
+      expect(output).toContain('Multiple skills found');
+      expect(output).toContain('skill-a');
+      expect(output).toContain('skill-b');
+    });
+  });
 });
