@@ -34,6 +34,7 @@ export interface PackOptions {
   force?: boolean;
   validate?: boolean;
   strict?: boolean;
+  all?: boolean;
 }
 
 export interface PackResult {
@@ -49,4 +50,5 @@ export interface ListOptions {
   json?: boolean;
   verbose?: boolean;
   fullDepth?: boolean;
+  all?: boolean;
 }

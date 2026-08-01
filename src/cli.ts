@@ -73,6 +73,7 @@ function showBanner(): void {
   console.log(`  ${TEXT}-v, --verbose${RESET}       ${DIM}Show detailed output${RESET}`);
   console.log(`  ${TEXT}-j, --json${RESET}           ${DIM}Output as JSON${RESET}`);
   console.log(`  ${TEXT}--full-depth${RESET}         ${DIM}Search all subdirectories${RESET}`);
+  console.log(`  ${TEXT}--all${RESET}                ${DIM}Pack all discovered skills${RESET}`);
   console.log();
 }
 
@@ -91,6 +92,7 @@ ${BOLD}Pack Options:${RESET}
   -f, --force            Overwrite existing .skill file
   --no-validate         Skip validation before packing
   --strict               Treat unknown frontmatter keys as errors
+  --all                   Pack all discovered skills in the repository
   -v, --verbose          Show detailed output
 
 ${BOLD}Check Options:${RESET}
@@ -149,6 +151,7 @@ export async function runPack(args: string[]): Promise<void> {
   let validate = true;
   let verbose = false;
   let strict = false;
+  let all = false;
 
   for (let i = 0; i < restArgs.length; i++) {
     const arg = restArgs[i];
@@ -174,6 +177,8 @@ export async function runPack(args: string[]): Promise<void> {
       verbose = true;
     } else if (arg === '--strict') {
       strict = true;
+    } else if (arg === '--all') {
+      all = true;
     }
   }
 
@@ -224,6 +229,39 @@ export async function runPack(args: string[]): Promise<void> {
       }
     }
 
+    if (all && !skillFilter) {
+      if (verbose) {
+        console.log(`${pc.cyan('📦')} Packing all skills...`);
+      }
+      const skills = await discoverSkills(skillPath, undefined, { fullDepth: true });
+
+      if (skills.length === 0) {
+        console.log(pc.red(`Error: No skills found`));
+        process.exit(1);
+      }
+
+      if (verbose) {
+        console.log(`${pc.green('Found')} ${pc.yellow(skills.length.toString())} skill${skills.length !== 1 ? 's' : ''}\n`);
+      }
+
+      for (const skill of skills) {
+        await packSkill({
+          skillPath: skill.path,
+          outputPath: outputDir,
+          force,
+          validate,
+          verbose,
+          strict,
+        });
+      }
+
+      if (!verbose) {
+        console.log(`${pc.green('✓')} Packed ${skills.length} skill${skills.length !== 1 ? 's' : ''}`);
+      }
+
+      return; // Skip the single-pack path below
+    }
+
     await packSkill({
       skillPath,
       outputPath: outputDir,
@@ -260,6 +298,9 @@ export async function runList(args: string[]): Promise<void> {
       } else if (arg === '-v' || arg === '--verbose') {
         verbose = true;
       } else if (arg === '--full-depth') {
+        fullDepth = true;
+      } else if (arg === '--all') {
+        // supported for consistency, same as --full-depth
         fullDepth = true;
       }
     } else {

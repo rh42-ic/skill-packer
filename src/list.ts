@@ -6,7 +6,8 @@ import { discoverSkills, getSkillDisplayName } from './skills.ts';
 import { cloneRepo, cleanupTempDir, GitCloneError } from './git.ts';
 
 export async function listSkills(options: ListOptions): Promise<Skill[]> {
-  const { source, json, verbose, fullDepth } = options;
+  const { source, json, verbose, fullDepth, all } = options;
+  const effectiveFullDepth = fullDepth || all;
   const cwd = process.cwd();
   
   let searchPath: string;
@@ -44,7 +45,7 @@ export async function listSkills(options: ListOptions): Promise<Skill[]> {
   }
   
   try {
-    const skills = await discoverSkills(searchPath, undefined, { fullDepth });
+    const skills = await discoverSkills(searchPath, undefined, { fullDepth: effectiveFullDepth });
     
     if (skills.length === 0) {
       if (json) {
