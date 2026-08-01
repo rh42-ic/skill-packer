@@ -1,6 +1,6 @@
 {
   "name": "skill-packer",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "description": "Download and package skills into .skill files",
   "type": "module",
   "main": "./dist/index.mjs",
