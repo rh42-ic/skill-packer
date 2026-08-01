@@ -1,7 +1,7 @@
 import { readdir, readFile, stat } from 'fs/promises';
 import { join, dirname, resolve, normalize, sep, basename } from 'path';
 import { parseFrontmatter } from './frontmatter.ts';
-import { sanitizeMetadata } from './sanitize.ts';
+import { sanitizeMetadata, stripTerminalEscapes } from './sanitize.ts';
 import type { Skill, DiscoverSkillsOptions } from './types.ts';
 import { getPluginSkillPaths, getPluginGroupings } from './plugin-manifest.ts';
 
@@ -52,46 +52,64 @@ async function hasSkillMd(dir: string): Promise<boolean> {
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function warnSkippedSkill(skillMdPath: string, reason: string): void {
-  console.warn(`Skipped ${skillMdPath} — ${reason}`);
+  console.warn(`⚠ Skipped ${sanitizeMetadata(skillMdPath)} — ${stripTerminalEscapes(reason)}`);
 }
 
 export async function parseSkillMd(
   skillMdPath: string,
   options?: { includeInternal?: boolean }
 ): Promise<Skill | null> {
+  let content: string;
   try {
-    const content = await readFile(skillMdPath, 'utf-8');
-    const { data } = parseFrontmatter(content);
-
-    if (!data.name || !data.description) {
-      warnSkippedSkill(skillMdPath, 'missing name or description');
-      return null;
-    }
-
-    if (typeof data.name !== 'string' || typeof data.description !== 'string') {
-      warnSkippedSkill(skillMdPath, 'name or description is not a string');
-      return null;
-    }
-
-    const metadata = data.metadata as Record<string, unknown> | undefined;
-    const isInternal = metadata?.internal === true;
-    if (isInternal && !shouldInstallInternalSkills() && !options?.includeInternal) {
-      warnSkippedSkill(skillMdPath, 'internal skill not enabled');
-      return null;
-    }
-
-    return {
-      name: sanitizeMetadata(data.name),
-      description: sanitizeMetadata(data.description),
-      path: dirname(skillMdPath),
-      rawContent: content,
-      metadata,
-    };
+    content = await readFile(skillMdPath, 'utf-8');
   } catch (err) {
     warnSkippedSkill(skillMdPath, `failed to read file: ${(err as Error).message}`);
     return null;
   }
+
+  let data: Record<string, unknown>;
+  try {
+    ({ data } = parseFrontmatter(content));
+  } catch (err) {
+    warnSkippedSkill(skillMdPath, `YAML parse error: ${(err as Error).message}`);
+    return null;
+  }
+
+  if (!data.name || !data.description) {
+    const missing: string[] = [];
+    if (!data.name) missing.push('name');
+    if (!data.description) missing.push('description');
+    warnSkippedSkill(skillMdPath, `missing required frontmatter field(s): ${missing.join(', ')}`);
+    return null;
+  }
+
+  if (typeof data.name !== 'string' || typeof data.description !== 'string') {
+    warnSkippedSkill(
+      skillMdPath,
+      `frontmatter "name" and "description" must be strings (got ${typeof data.name} and ${typeof data.description})`
+    );
+    return null;
+  }
+
+  const metadata = isRecord(data.metadata) ? data.metadata : undefined;
+  const isInternal = metadata?.internal === true;
+  if (isInternal && !shouldInstallInternalSkills() && !options?.includeInternal) {
+    warnSkippedSkill(skillMdPath, 'internal skill not enabled');
+    return null;
+  }
+
+  return {
+    name: sanitizeMetadata(data.name),
+    description: sanitizeMetadata(data.description),
+    path: dirname(skillMdPath),
+    rawContent: content,
+    metadata,
+  };
 }
 
 async function findSkillDirs(dir: string, depth = 0, maxDepth = 5): Promise<string[]> {
