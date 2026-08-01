@@ -3,6 +3,7 @@ import { join, dirname, resolve, normalize, sep, basename } from 'path';
 import matter from 'gray-matter';
 import { sanitizeMetadata } from './sanitize.ts';
 import type { Skill, DiscoverSkillsOptions } from './types.ts';
+import { getPluginSkillPaths, getPluginGroupings } from './plugin-manifest.ts';
 
 const SKIP_DIRS = ['node_modules', '.git', 'dist', 'build', '__pycache__'];
 
@@ -146,6 +147,18 @@ export async function discoverSkills(
 
   const searchPath = subpath ? join(basePath, subpath) : basePath;
 
+  // Get plugin groupings to map skills to their parent plugin
+  const pluginGroupings = await getPluginGroupings(searchPath);
+
+  // Helper to assign plugin name if available
+  const enhanceSkill = (skill: Skill) => {
+    const resolvedPath = resolve(skill.path);
+    if (pluginGroupings.has(resolvedPath)) {
+      skill.pluginName = pluginGroupings.get(resolvedPath);
+    }
+    return skill;
+  };
+
   if (await hasSkillMd(searchPath)) {
     let skill = await parseSkillMd(join(searchPath, 'SKILL.md'), options);
     if (skill) {
@@ -166,6 +179,9 @@ export async function discoverSkills(
     ...AGENT_PROJECT_SKILL_DIRS.map((dir) => join(searchPath, dir)),
   ];
 
+  // Add skill paths declared in plugin manifests
+  prioritySearchDirs.push(...(await getPluginSkillPaths(searchPath)));
+
   // Known skill container dirs are walked one extra level deep so layouts
   // like skills/<category>/<skill>/SKILL.md are discovered without
   // requiring --full-depth.
@@ -175,7 +191,7 @@ export async function discoverSkills(
     if (!(await hasSkillMd(skillDir))) return false;
     let skill = await parseSkillAt(skillDir);
     if (!skill || seenNames.has(skill.name)) return true;
-    skills.push(skill);
+    skills.push(enhanceSkill(skill));
     seenNames.add(skill.name);
     return true;
   };
@@ -217,7 +233,7 @@ export async function discoverSkills(
     for (const skillDir of allSkillDirs) {
       let skill = await parseSkillAt(skillDir);
       if (skill && !seenNames.has(skill.name)) {
-        skills.push(skill);
+        skills.push(enhanceSkill(skill));
         seenNames.add(skill.name);
       }
     }

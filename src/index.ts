@@ -11,6 +11,7 @@ export { cloneRepo, cleanupTempDir, GitCloneError } from './git.ts';
 
 // Skill discovery & metadata
 export { discoverSkills, parseSkillMd, isSubpathSafe, shouldInstallInternalSkills, getSkillDisplayName, filterSkills } from './skills.ts';
+export { getPluginSkillPaths, getPluginGroupings } from './plugin-manifest.ts';
 
 // Sanitization
 export { sanitizeMetadata, stripTerminalEscapes } from './sanitize.ts';
