@@ -1,6 +1,6 @@
 import { readdir, readFile, stat } from 'fs/promises';
 import { join, dirname, resolve, normalize, sep, basename } from 'path';
-import matter from 'gray-matter';
+import { parseFrontmatter } from './frontmatter.ts';
 import { sanitizeMetadata } from './sanitize.ts';
 import type { Skill, DiscoverSkillsOptions } from './types.ts';
 import { getPluginSkillPaths, getPluginGroupings } from './plugin-manifest.ts';
@@ -62,7 +62,7 @@ export async function parseSkillMd(
 ): Promise<Skill | null> {
   try {
     const content = await readFile(skillMdPath, 'utf-8');
-    const { data } = matter(content);
+    const { data } = parseFrontmatter(content);
 
     if (!data.name || !data.description) {
       warnSkippedSkill(skillMdPath, 'missing name or description');
@@ -74,7 +74,8 @@ export async function parseSkillMd(
       return null;
     }
 
-    const isInternal = data.metadata?.internal === true;
+    const metadata = data.metadata as Record<string, unknown> | undefined;
+    const isInternal = metadata?.internal === true;
     if (isInternal && !shouldInstallInternalSkills() && !options?.includeInternal) {
       warnSkippedSkill(skillMdPath, 'internal skill not enabled');
       return null;
@@ -85,7 +86,7 @@ export async function parseSkillMd(
       description: sanitizeMetadata(data.description),
       path: dirname(skillMdPath),
       rawContent: content,
-      metadata: data.metadata,
+      metadata,
     };
   } catch (err) {
     warnSkippedSkill(skillMdPath, `failed to read file: ${(err as Error).message}`);

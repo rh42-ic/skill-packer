@@ -1,6 +1,6 @@
 {
   "name": "skill-packer",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Download and package skills into .skill files",
   "type": "module",
   "main": "./dist/index.mjs",
@@ -43,7 +43,7 @@
   "dependencies": {
     "@clack/prompts": "^0.11.0",
     "archiver": "^7.0.1",
-    "gray-matter": "^4.0.3",
+    "yaml": "^2.8.3",
     "picocolors": "^1.1.1",
     "simple-git": "^3.27.0"
   },
@@ -53,6 +53,14 @@
     "obuild": "^0.4.22",
     "typescript": "^5.9.3",
     "vitest": "^4.0.17"
+  },
+  "overrides": {
+    "isarray": "npm:@socketregistry/isarray@^1",
+    "safe-buffer": "npm:@socketregistry/safe-buffer@^1"
+  },
+  "resolutions": {
+    "isarray": "npm:@socketregistry/isarray@^1",
+    "safe-buffer": "npm:@socketregistry/safe-buffer@^1"
   },
   "engines": {
     "node": ">=18"
