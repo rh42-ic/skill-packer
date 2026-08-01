@@ -4,6 +4,7 @@ export type { ValidateOptions } from './validate.ts';
 
 // Source parsing
 export { parseSource, parseOwnerRepo, getOwnerRepo } from './source-parser.ts';
+export { isGitHubHost, getGitHubHost } from './github-host.ts';
 
 // Git operations
 export { cloneRepo, cleanupTempDir, GitCloneError } from './git.ts';

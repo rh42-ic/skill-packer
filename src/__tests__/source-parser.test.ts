@@ -150,10 +150,10 @@ describe('parseSource', () => {
       expect(result.url).toBe('http://my-server.com/skills');
     });
 
-    it('does not treat raw.githubusercontent.com as well-known', () => {
+    it('treats raw.githubusercontent.com as download', () => {
       const result = parseSource('https://raw.githubusercontent.com/user/repo/main/file');
-      // Since the hostname is excluded, it falls through to git
-      expect(result.type).toBe('git');
+      // Raw GitHub URLs are detected as hosted artifacts and use download type
+      expect(result.type).toBe('download');
     });
   });
 

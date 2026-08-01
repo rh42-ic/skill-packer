@@ -1,5 +1,5 @@
 export interface ParsedSource {
-  type: 'local' | 'github' | 'gitlab' | 'git' | 'well-known';
+  type: 'local' | 'github' | 'gitlab' | 'git' | 'well-known' | 'download';
   url: string;
   localPath?: string;
   ref?: string;
