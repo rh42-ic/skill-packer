@@ -137,7 +137,9 @@ describe('listSkills', () => {
       type: 'github',
       url: 'https://github.com/user/repo.git',
     });
-    mockCloneRepo.mockRejectedValue(new GitCloneError('network error'));
+    mockCloneRepo.mockRejectedValue(
+      new GitCloneError('network error', 'https://github.com/user/repo.git')
+    );
 
     // process.exit mock
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {
