@@ -6,6 +6,36 @@ import type { Skill, DiscoverSkillsOptions } from './types.ts';
 
 const SKIP_DIRS = ['node_modules', '.git', 'dist', 'build', '__pycache__'];
 
+const AGENT_PROJECT_SKILL_DIRS = [
+  '.agents/skills',
+  '.claude/skills',
+  '.cline/skills',
+  '.codebuddy/skills',
+  '.codex/skills',
+  '.commandcode/skills',
+  '.continue/skills',
+  '.github/skills',
+  '.goose/skills',
+  '.grok/skills',
+  '.iflow/skills',
+  '.junie/skills',
+  '.kilocode/skills',
+  '.kimchi/skills',
+  '.kiro/skills',
+  '.minimax/skills',
+  '.mux/skills',
+  '.neovate/skills',
+  '.opencode/skills',
+  '.openhands/skills',
+  '.pi/skills',
+  '.qoder/skills',
+  '.roo/skills',
+  '.trae/skills',
+  '.windsurf/skills',
+  '.zcode/skills',
+  '.zencoder/skills',
+];
+
 export function shouldInstallInternalSkills(): boolean {
   const envValue = process.env.INSTALL_INTERNAL_SKILLS;
   return envValue === '1' || envValue === 'true';
@@ -21,6 +51,10 @@ async function hasSkillMd(dir: string): Promise<boolean> {
   }
 }
 
+function warnSkippedSkill(skillMdPath: string, reason: string): void {
+  console.warn(`Skipped ${skillMdPath} — ${reason}`);
+}
+
 export async function parseSkillMd(
   skillMdPath: string,
   options?: { includeInternal?: boolean }
@@ -30,15 +64,18 @@ export async function parseSkillMd(
     const { data } = matter(content);
 
     if (!data.name || !data.description) {
+      warnSkippedSkill(skillMdPath, 'missing name or description');
       return null;
     }
 
     if (typeof data.name !== 'string' || typeof data.description !== 'string') {
+      warnSkippedSkill(skillMdPath, 'name or description is not a string');
       return null;
     }
 
     const isInternal = data.metadata?.internal === true;
     if (isInternal && !shouldInstallInternalSkills() && !options?.includeInternal) {
+      warnSkippedSkill(skillMdPath, 'internal skill not enabled');
       return null;
     }
 
@@ -49,7 +86,8 @@ export async function parseSkillMd(
       rawContent: content,
       metadata: data.metadata,
     };
-  } catch {
+  } catch (err) {
+    warnSkippedSkill(skillMdPath, `failed to read file: ${(err as Error).message}`);
     return null;
   }
 }
@@ -91,6 +129,14 @@ export async function discoverSkills(
 ): Promise<Skill[]> {
   const skills: Skill[] = [];
   const seenNames = new Set<string>();
+  const parsedSkillPaths = new Set<string>();
+
+  const parseSkillAt = async (skillDir: string): Promise<Skill | null> => {
+    const skillMdPath = resolve(skillDir, 'SKILL.md');
+    if (parsedSkillPaths.has(skillMdPath)) return null;
+    parsedSkillPaths.add(skillMdPath);
+    return parseSkillMd(skillMdPath, options);
+  };
 
   if (subpath && !isSubpathSafe(basePath, subpath)) {
     throw new Error(
@@ -117,28 +163,47 @@ export async function discoverSkills(
     join(searchPath, 'skills/.curated'),
     join(searchPath, 'skills/.experimental'),
     join(searchPath, 'skills/.system'),
-    join(searchPath, '.agent/skills'),
-    join(searchPath, '.agents/skills'),
-    join(searchPath, '.claude/skills'),
-    join(searchPath, '.cline/skills'),
-    join(searchPath, '.codex/skills'),
-    join(searchPath, '.opencode/skills'),
+    ...AGENT_PROJECT_SKILL_DIRS.map((dir) => join(searchPath, dir)),
   ];
 
+  // Known skill container dirs are walked one extra level deep so layouts
+  // like skills/<category>/<skill>/SKILL.md are discovered without
+  // requiring --full-depth.
+  const deepContainerDirs = new Set(prioritySearchDirs.slice(1));
+
+  const tryAddSkillAt = async (skillDir: string): Promise<boolean> => {
+    if (!(await hasSkillMd(skillDir))) return false;
+    let skill = await parseSkillAt(skillDir);
+    if (!skill || seenNames.has(skill.name)) return true;
+    skills.push(skill);
+    seenNames.add(skill.name);
+    return true;
+  };
+
   for (const dir of prioritySearchDirs) {
+    const walkDeep = deepContainerDirs.has(dir);
+
     try {
       const entries = await readdir(dir, { withFileTypes: true });
 
       for (const entry of entries) {
-        if (entry.isDirectory()) {
-          const skillDir = join(dir, entry.name);
-          if (await hasSkillMd(skillDir)) {
-            let skill = await parseSkillMd(join(skillDir, 'SKILL.md'), options);
-            if (skill && !seenNames.has(skill.name)) {
-              skills.push(skill);
-              seenNames.add(skill.name);
-            }
+        if (!entry.isDirectory()) continue;
+
+        const childDir = join(dir, entry.name);
+        const foundAtChild = await tryAddSkillAt(childDir);
+
+        if (foundAtChild || !walkDeep) continue;
+        if (SKIP_DIRS.includes(entry.name)) continue;
+
+        // Walk one extra level for catalog layouts
+        try {
+          const grandEntries = await readdir(childDir, { withFileTypes: true });
+          for (const grand of grandEntries) {
+            if (!grand.isDirectory() || SKIP_DIRS.includes(grand.name)) continue;
+            await tryAddSkillAt(join(childDir, grand.name));
           }
+        } catch {
+          // Child dir unreadable; skip silently
         }
       }
     } catch {
@@ -150,7 +215,7 @@ export async function discoverSkills(
     const allSkillDirs = await findSkillDirs(searchPath);
 
     for (const skillDir of allSkillDirs) {
-      let skill = await parseSkillMd(join(skillDir, 'SKILL.md'), options);
+      let skill = await parseSkillAt(skillDir);
       if (skill && !seenNames.has(skill.name)) {
         skills.push(skill);
         seenNames.add(skill.name);
