@@ -164,9 +164,10 @@ describe('CLI', () => {
       });
 
       const logSpy = vi.spyOn(console, 'log');
+      const errorSpy = vi.spyOn(console, 'error');
       await assertExits(() => runCheck(['/path/to/skill']), 1);
 
-      const output = logSpy.mock.calls.map(c => c.join(' ')).join('\n');
+      const output = [...logSpy.mock.calls, ...errorSpy.mock.calls].map(c => c.join(' ')).join('\n');
       expect(output).toContain('Validation failed');
     });
 
@@ -484,9 +485,10 @@ describe('CLI', () => {
       mockDiscoverSkills.mockResolvedValue([]);
 
       const logSpy = vi.spyOn(console, 'log');
+      const errorSpy = vi.spyOn(console, 'error');
       await assertExits(() => runPack(['user/repo', '--all']), 1);
 
-      const output = logSpy.mock.calls.map(c => c.join(' ')).join('\n');
+      const output = [...logSpy.mock.calls, ...errorSpy.mock.calls].map(c => c.join(' ')).join('\n');
       expect(output).toContain('No skills found');
     });
 
@@ -502,11 +504,12 @@ describe('CLI', () => {
         });
 
       const logSpy = vi.spyOn(console, 'log');
+      const errorSpy = vi.spyOn(console, 'error');
       await assertExits(() => runPack(['user/repo', '--all']), 1);
 
       // Both skills attempted (skip-and-continue, not fail-fast)
       expect(mockPackSkill).toHaveBeenCalledTimes(2);
-      const output = logSpy.mock.calls.map(c => c.join(' ')).join('\n');
+      const output = [...logSpy.mock.calls, ...errorSpy.mock.calls].map(c => c.join(' ')).join('\n');
       const stripped = output.replace(/\x1B\[\d+m/g, '');
       // Failed skill noted inline, remaining skill still packed
       expect(stripped).toContain('Failed: skill-a');
@@ -615,9 +618,10 @@ describe('CLI', () => {
       mockDiscoverSkills.mockResolvedValue([]);
 
       const logSpy = vi.spyOn(console, 'log');
+      const errorSpy = vi.spyOn(console, 'error');
       await assertExits(() => runPack(['user/repo']), 1);
 
-      expect(logSpy.mock.calls.map(c => c.join(' ')).join('\n')).toContain('No skills found');
+      expect([...logSpy.mock.calls, ...errorSpy.mock.calls].map(c => c.join(' ')).join('\n')).toContain('No skills found');
     });
 
     it('exits with error listing available skills in non-TTY with multiple skills', async () => {
@@ -631,13 +635,14 @@ describe('CLI', () => {
       ]);
 
       const logSpy = vi.spyOn(console, 'log');
+      const errorSpy = vi.spyOn(console, 'error');
       try {
         await assertExits(() => runPack(['user/repo']), 1);
       } finally {
         Object.defineProperty(process.stdin, 'isTTY', { value: originalTTY, configurable: true });
       }
 
-      const output = logSpy.mock.calls.map(c => c.join(' ')).join('\n');
+      const output = [...logSpy.mock.calls, ...errorSpy.mock.calls].map(c => c.join(' ')).join('\n');
       expect(output).toContain('Multiple skills found');
       expect(output).toContain('skill-a');
       expect(output).toContain('skill-b');

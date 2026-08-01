@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import pc from 'picocolors';
+import { success, error, warn, info, path, count, detail, highlight, indent, bullet, dimLabel } from './print.js';
 import { readFileSync } from 'fs';
 import { join, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
@@ -31,13 +32,14 @@ const BOLD = '\x1b[1m';
 const DIM = '\x1b[38;5;102m';
 const TEXT = '\x1b[38;5;145m';
 
-const LOGO_LINES = [
-  '███████╗██╗  ██╗██╗██╗     ██╗     ███████╗',
-  '██╔════╝██║ ██╔╝██║██║     ██║     ██╔════╝',
-  '███████╗█████╔╝ ██║██║     ██║     ███████╗',
-  '╚════██║██╔═██╗ ██║██║     ██║     ╚════██║',
-  '███████║██║  ██╗██║███████╗███████╗███████║',
-  '╚══════╝╚═╝  ╚═╝╚═╝╚══════╝╚══════╝╚══════╝',
+const LOGO_LINES = [                               
+  '▄█████ ██ ▄█▀ ██ ██     ██                 ',
+  '▀▀▀▄▄▄ ████   ██ ██     ██                 ',
+  '█████▀ ██ ▀█▄ ██ ██████ ██████             ',
+  '                                           ',
+  '█████▄ ▄████▄ ▄█████ ██ ▄█▀ ██████ █████▄  ',
+  '██▄▄█▀ ██▄▄██ ██     ████   ██▄▄   ██▄▄██▄ ',
+  '██     ██  ██ ▀█████ ██ ▀█▄ ██▄▄▄▄ ██   ██ ',
 ];
 
 const GRAYS = [
@@ -137,7 +139,7 @@ ${BOLD}Examples:${RESET}
 
 export async function runPack(args: string[]): Promise<void> {
   if (args.length === 0 || args[0]?.startsWith('-')) {
-    console.log(pc.red('Error: Missing source'));
+    error('Missing source');
     console.log('Usage: skill-packer pack <source> [options]');
     console.log('       skill-packer pack <url> --skill <name> [options]');
     process.exit(1);
@@ -159,14 +161,14 @@ export async function runPack(args: string[]): Promise<void> {
     if (arg === '-o' || arg === '--output') {
       const val = restArgs[++i];
       if (!val || val.startsWith('-')) {
-        console.log(pc.red(`Error: --output requires a directory path`));
+        error('--output requires a directory path');
         process.exit(1);
       }
       outputDir = val;
     } else if (arg === '-s' || arg === '--skill') {
       const val = restArgs[++i];
       if (!val || val.startsWith('-')) {
-        console.log(pc.red(`Error: --skill requires a skill name`));
+        error('--skill requires a skill name');
         process.exit(1);
       }
       skillFilter = val;
@@ -192,7 +194,7 @@ export async function runPack(args: string[]): Promise<void> {
     if (parsed.type === 'local') {
       skillPath = parsed.localPath!;
     } else {
-      console.log(`${pc.cyan('🔍')} Cloning ${parsed.url}...`);
+      info(`Cloning ${parsed.url}...`);
       tempDir = await cloneRepo(parsed.url, parsed.ref);
       skillPath = tempDir;
 
@@ -207,18 +209,18 @@ export async function runPack(args: string[]): Promise<void> {
 
     if (skillFilter) {
       if (verbose) {
-        console.log(`${pc.cyan('🔍')} Finding skill: ${pc.yellow(skillFilter)}`);
+        info(`Finding skill: ${highlight(skillFilter)}`);
       }
       const skills = await discoverSkills(skillPath);
       
       if (skills.length === 0) {
-        console.log(pc.red(`Error: No skills found in repository`));
+        error('No skills found in repository');
         process.exit(1);
       }
 
       const match = skills.find(s => s.name === skillFilter);
       if (!match) {
-        console.log(pc.red(`Error: Skill "${skillFilter}" not found`));
+        error(`Skill "${skillFilter}" not found`);
         console.log(pc.dim(`Available skills: ${skills.map(s => s.name).join(', ')}`));
         process.exit(1);
       }
@@ -226,23 +228,23 @@ export async function runPack(args: string[]): Promise<void> {
       skillPath = match.path;
 
       if (verbose) {
-        console.log(`${pc.green('✓')} Found: ${pc.cyan(skillPath)}\n`);
+        success(`Found: ${path(skillPath)}\n`);
       }
     }
 
     if (all && !skillFilter) {
       if (verbose) {
-        console.log(`${pc.cyan('📦')} Packing all skills...`);
+        info('Packing all skills...');
       }
       const skills = await discoverSkills(skillPath, undefined, { fullDepth: true });
 
       if (skills.length === 0) {
-        console.log(pc.red(`Error: No skills found`));
+        error('No skills found');
         process.exit(1);
       }
 
       if (verbose) {
-        console.log(`${pc.green('Found')} ${pc.yellow(skills.length.toString())} skill${skills.length !== 1 ? 's' : ''}\n`);
+        info(`Found ${count(skills.length)} skill${skills.length !== 1 ? 's' : ''}\n`);
       }
 
       let succeeded = 0;
@@ -261,19 +263,19 @@ export async function runPack(args: string[]): Promise<void> {
 
           succeeded++;
           if (!verbose) {
-            console.log(`${pc.green('✓')} Packed: ${pc.cyan(result.outputPath)} (${formatBytes(result.size)})`);
+            success(`Packed: ${path(result.outputPath)} (${formatBytes(result.size)})`);
           }
         } catch (e) {
           const message = e instanceof Error ? e.message : 'Unknown error';
           failures.push({ name: skill.name, message });
-          console.log(pc.red(`✗ Failed: ${skill.name} (${message})`));
+          error(`Failed: ${skill.name} (${message})`);
         }
       }
 
       const failureCount = failures.length;
       const summary = failureCount > 0
-        ? `${succeeded} succeeded, ${pc.red(`${failureCount} failed`)}`
-        : `${pc.green(succeeded.toString())} succeeded, ${failureCount} failed`;
+        ? `${count(succeeded)} succeeded, ${pc.red(`${failureCount} failed`)}`
+        : `${count(succeeded)} succeeded, ${count(failureCount)} failed`;
       console.log(summary);
 
       if (failureCount > 0) {
@@ -288,7 +290,7 @@ export async function runPack(args: string[]): Promise<void> {
       const skills = await discoverSkills(skillPath, undefined, { fullDepth: true });
 
       if (skills.length === 0) {
-        console.log(pc.red(`Error: No skills found`));
+        error('No skills found');
         process.exit(1);
       }
 
@@ -303,14 +305,14 @@ export async function runPack(args: string[]): Promise<void> {
         });
 
         if (!verbose) {
-          console.log(`${pc.green('✓')} Packed: ${pc.cyan(result.outputPath)} (${formatBytes(result.size)})`);
+          success(`Packed: ${path(result.outputPath)} (${formatBytes(result.size)})`);
         }
         return;
       }
 
       // Multiple skills: interactive prompt (or error in non-TTY environments)
       if (!process.stdin.isTTY) {
-        console.log(pc.red(`Error: Multiple skills found. Use --skill or --all to select.`));
+        error('Multiple skills found. Use --skill or --all to select.');
         console.log(pc.dim(`Available: ${skills.map(s => s.name).join(', ')}`));
         process.exit(1);
       }
@@ -332,7 +334,7 @@ export async function runPack(args: string[]): Promise<void> {
       });
 
       if (typeof selected === 'symbol') {
-        console.log(pc.dim('Cancelled'));
+        console.log(detail('Cancelled'));
         process.exit(0);
       }
 
@@ -347,7 +349,7 @@ export async function runPack(args: string[]): Promise<void> {
         });
 
         if (!verbose) {
-          console.log(`${pc.green('✓')} Packed: ${pc.cyan(result.outputPath)} (${formatBytes(result.size)})`);
+          success(`Packed: ${path(result.outputPath)} (${formatBytes(result.size)})`);
         }
       }
 
@@ -365,12 +367,12 @@ export async function runPack(args: string[]): Promise<void> {
     });
 
     if (!verbose) {
-      console.log(`${pc.green('✓')} Packed: ${pc.cyan(result.outputPath)} (${formatBytes(result.size)})`);
+      success(`Packed: ${path(result.outputPath)} (${formatBytes(result.size)})`);
     }
 
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Unknown error';
-    console.log(pc.red(`Error: ${message}`));
+    error(message);
     process.exit(1);
   } finally {
     if (tempDir) {
@@ -409,7 +411,7 @@ export async function runList(args: string[]): Promise<void> {
     await listSkills({ source, json, verbose, fullDepth });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Unknown error';
-    console.log(pc.red(`Error: ${message}`));
+    error(message);
     process.exit(1);
   }
 }
@@ -428,35 +430,35 @@ export async function runCheck(args: string[]): Promise<void> {
   }
 
   if (!skillPath) {
-    console.log(pc.red('Error: Missing skill path'));
+    error('Missing skill path');
     console.log('Usage: skill-packer check <path> [--strict]');
     process.exit(1);
   }
 
-  console.log(`${pc.cyan('🔍')} Validating skill: ${pc.yellow(skillPath)}${strict ? pc.dim(' (strict mode)') : ''}\n`);
+  info(`Validating skill: ${path(skillPath)}${strict ? ' ' + detail('(strict mode)') : ''}\n`);
 
   try {
     const result = await validateSkillPath(skillPath, { strict });
     
     if (result.valid) {
       if (result.warnings.length > 0) {
-        console.log(`${pc.yellow('⚠')} Skill is valid with warnings:\n`);
+        warn('Skill is valid with warnings:\n');
         for (const warning of result.warnings) {
-          console.log(`  ${pc.yellow('•')} ${warning}`);
+          console.warn(bullet(warning));
         }
         console.log();
       }
-      console.log(`${pc.green('✓')} Skill is valid!\n`);
+      success('Skill is valid!\n');
       process.exit(0);
     } else {
-      console.log(`${pc.red('✗')} Validation failed:\n`);
+      error('Validation failed:\n');
       for (const error of result.errors) {
-        console.log(`  ${pc.red('•')} ${error}`);
+        console.error(bullet(error));
       }
       if (result.warnings.length > 0) {
-        console.log(`\n${pc.yellow('⚠')} Warnings:`);
+        warn('\nWarnings:');
         for (const warning of result.warnings) {
-          console.log(`  ${pc.yellow('•')} ${warning}`);
+          console.warn(bullet(warning));
         }
       }
       console.log();
@@ -464,7 +466,7 @@ export async function runCheck(args: string[]): Promise<void> {
     }
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Unknown error';
-    console.log(pc.red(`Error: ${message}`));
+    error(message);
     process.exit(1);
   }
 }

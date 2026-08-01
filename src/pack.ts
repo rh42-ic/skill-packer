@@ -5,6 +5,7 @@ import { ZipArchive } from 'archiver';
 import pc from 'picocolors';
 import type { PackOptions, PackResult } from './types.ts';
 import { validateSkillPath } from './validate.ts';
+import { success, error, warn, info, path, count, detail, highlight, indent, bullet, dimLabel } from './print.js';
 
 
 const EXCLUDE_DIRS = new Set(['node_modules', '__pycache__', '.git', 'dist', 'build', 'evals']);
@@ -49,28 +50,29 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
   
   if (validate) {
     if (verbose) {
-      console.log(`${pc.cyan('🔍')} Validating skill...`);
+      info('Validating skill...');
     }
     
     const validation = await validateSkillPath(resolvedSkillPath, { strict });
     
     if (!validation.valid) {
-      console.log(pc.red(`❌ Validation failed:`));
+      error('Validation failed:');
       for (const error of validation.errors) {
-        console.log(pc.red(`   ${error}`));
+        console.error(bullet(error));
       }
       throw new Error('Validation failed');
     }
 
     if (validation.warnings.length > 0) {
-      console.log(pc.yellow(`⚠️  Warnings:`));
+      warn('Warnings:');
       for (const warning of validation.warnings) {
-        console.log(pc.yellow(`   ${warning}`));
+        console.warn(bullet(warning));
       }
     }
     
     if (verbose) {
-      console.log(`${pc.green('✓')} Skill is valid!\n`);
+      success('Skill is valid!');
+      console.log();
     }
   }
   
@@ -87,9 +89,10 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
   }
   
   if (verbose) {
-    console.log(`${pc.cyan('📦')} Packaging skill: ${pc.yellow(skillName)}`);
-    console.log(`   Source: ${pc.dim(resolvedSkillPath)}`);
-    console.log(`   Output: ${pc.dim(outputFilePath)}\n`);
+    info(`Packaging: ${path(skillName)}`);
+    console.log(indent(3, 'Source: ' + detail(resolvedSkillPath)));
+    console.log(indent(3, 'Output: ' + detail(outputFilePath)));
+    console.log();
   }
   
   const filesIncluded: string[] = [];
@@ -112,18 +115,18 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
       const size = archive.pointer();
       
       if (verbose) {
-        console.log(`${pc.green('✓')} Successfully packaged skill!`);
-        console.log(`   Output: ${pc.cyan(outputFilePath)}`);
-        console.log(`   Size: ${formatBytes(size)}`);
-        console.log(`   Files included: ${filesIncluded.length}`);
+        success('Successfully packaged skill!');
+        console.log(indent(3, 'Output: ' + path(outputFilePath)));
+        console.log(indent(3, 'Size: ' + formatBytes(size)));
+        console.log(indent(3, 'Files included: ' + count(filesIncluded.length)));
         
         if (filesExcluded.length > 0) {
-          console.log(`   Files excluded: ${filesExcluded.length}`);
+          console.log(indent(3, 'Files excluded: ' + count(filesExcluded.length)));
           for (const f of filesExcluded.slice(0, 5)) {
-            console.log(`     ${pc.dim(f)}`);
+            console.log(indent(5, detail(f)));
           }
           if (filesExcluded.length > 5) {
-            console.log(`     ${pc.dim(`... and ${filesExcluded.length - 5} more`)}`);
+            console.log(indent(5, detail(`... and ${filesExcluded.length - 5} more`)));
           }
         }
       }
@@ -156,7 +159,7 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
         if (shouldExclude(relativePath)) {
           filesExcluded.push(relativePath);
           if (verbose) {
-            console.log(`  ${pc.dim('Skipped:')}: ${relativePath}`);
+            console.log(`  ${pc.dim('Skipped')} ${relativePath}`);
           }
           continue;
         }
@@ -167,7 +170,7 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
           archive.file(fullEntryPath, { name: `${skillName}/${relativePath}` });
           filesIncluded.push(relativePath);
           if (verbose) {
-            console.log(`  ${pc.green('Added:')}: ${relativePath}`);
+            console.log(`  ${pc.green('Added')} ${relativePath}`);
           }
         }
       }

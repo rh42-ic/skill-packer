@@ -4,6 +4,7 @@ import { parseFrontmatter } from './frontmatter.ts';
 import { sanitizeMetadata, stripTerminalEscapes } from './sanitize.ts';
 import type { Skill, DiscoverSkillsOptions } from './types.ts';
 import { getPluginSkillPaths, getPluginGroupings } from './plugin-manifest.ts';
+import { warn } from './print.js';
 
 const SKIP_DIRS = ['node_modules', '.git', 'dist', 'build', '__pycache__'];
 
@@ -57,7 +58,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function warnSkippedSkill(skillMdPath: string, reason: string): void {
-  console.warn(`⚠ Skipped ${sanitizeMetadata(skillMdPath)} — ${stripTerminalEscapes(reason)}`);
+  warn(`Skipped ${sanitizeMetadata(skillMdPath)} — ${stripTerminalEscapes(reason)}`);
 }
 
 export async function parseSkillMd(
