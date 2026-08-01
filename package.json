@@ -12,7 +12,8 @@
     }
   },
   "bin": {
-    "skill-packer": "./bin/cli.mjs"
+    "skill-packer": "./bin/cli.mjs",
+    "pack-skill": "./bin/pack-skill.mjs"
   },
   "files": [
     "dist",

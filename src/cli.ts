@@ -6,7 +6,7 @@ import { join, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
 import { parseSource } from './source-parser.ts';
 import { listSkills } from './list.ts';
-import { packSkill } from './pack.ts';
+import { packSkill, formatBytes } from './pack.ts';
 import { validateSkillPath } from './validate.ts';
 import { discoverSkills } from './skills.ts';
 import { cloneRepo, cleanupTempDir } from './git.ts';
@@ -262,7 +262,7 @@ export async function runPack(args: string[]): Promise<void> {
       return; // Skip the single-pack path below
     }
 
-    await packSkill({
+    const result = await packSkill({
       skillPath,
       outputPath: outputDir,
       force,
@@ -270,6 +270,10 @@ export async function runPack(args: string[]): Promise<void> {
       verbose,
       strict,
     });
+
+    if (!verbose) {
+      console.log(`${pc.green('✓')} Packed: ${pc.cyan(result.outputPath)} (${formatBytes(result.size)})`);
+    }
 
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Unknown error';
@@ -374,19 +378,40 @@ export async function runCheck(args: string[]): Promise<void> {
 
 export async function main(): Promise<void> {
   const args = process.argv.slice(2);
+  const isPackAlias = process.env.__SKILL_PACKER_DEFAULT === 'pack';
 
   if (args.length === 0) {
-    showBanner();
+    if (isPackAlias) {
+      console.log(`${BOLD}pack-skill${RESET} ${DIM}— pack skills into .skill files${RESET}\n`);
+      console.log(`Usage: ${TEXT}pack-skill <source> [options]${RESET}`);
+      console.log(`Run ${BOLD}pack-skill --help${RESET} for details.`);
+    } else {
+      showBanner();
+    }
     return;
   }
 
-  const command = args[0];
-  const restArgs = args.slice(1);
+  const command = isPackAlias ? 'pack' : args[0];
+  const restArgs = isPackAlias ? args : args.slice(1);
+
+  // Handle --help/--version for pack-skill alias
+  if (isPackAlias) {
+    if (args[0] === '--help' || args[0] === '-h') {
+      showHelp();
+      return;
+    }
+    if (args[0] === '--version' || args[0] === '-v') {
+      console.log(VERSION);
+      return;
+    }
+  }
 
   switch (command) {
     case 'pack':
-      showLogo();
-      console.log();
+      if (!isPackAlias) {
+        showLogo();
+        console.log();
+      }
       await runPack(restArgs);
       break;
     case 'list':
@@ -419,7 +444,7 @@ export async function main(): Promise<void> {
 // Only auto-run when executed directly, not when imported (e.g., by tests)
 const cliFilePath = fileURLToPath(import.meta.url).replace(/\\/g, '/');
 const execPath = (process.argv[1] || '').replace(/\\/g, '/');
-if (execPath === cliFilePath || execPath.endsWith('/cli.mjs') || execPath.endsWith('/cli.js')) {
+if (execPath === cliFilePath || execPath.endsWith('/cli.mjs') || execPath.endsWith('/cli.js') || execPath.endsWith('/pack-skill.mjs')) {
   main().catch((err) => {
     const message = err instanceof Error ? err.message : 'Unknown error';
     console.error(`Fatal: ${message}`);
