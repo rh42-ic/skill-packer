@@ -41,6 +41,7 @@ const GRAYS = [
   '\x1b[38;5;250m',
   '\x1b[38;5;248m',
   '\x1b[38;5;245m',
+  '', // blank separator line between logo halves
   '\x1b[38;5;243m',
   '\x1b[38;5;240m',
   '\x1b[38;5;238m',
