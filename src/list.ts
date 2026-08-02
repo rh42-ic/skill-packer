@@ -1,6 +1,6 @@
 import { join } from 'path';
 import type { ListOptions, Skill } from './types.ts';
-import { parseSource } from './source-parser.ts';
+import { parseSource, getOwnerRepo } from './source-parser.ts';
 import { discoverSkills, getSkillDisplayName } from './skills.ts';
 import { cloneRepo, cleanupTempDir, GitCloneError } from './git.ts';
 import { error, warn, info, path, count, detail } from './print.js';
@@ -21,7 +21,8 @@ export async function listSkills(options: ListOptions): Promise<Skill[]> {
     if (parsed.type === 'local') {
       searchPath = parsed.localPath!;
     } else {
-      info(`Fetching from ${parsed.url}...`);
+      const displayName = getOwnerRepo(parsed) || parsed.url;
+      info(`Fetching from ${displayName}...`);
       
       try {
         tempDir = await cloneRepo(parsed.url, parsed.ref);

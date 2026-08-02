@@ -3,7 +3,7 @@ export type { ParsedSource, Skill, DiscoverSkillsOptions, ValidationResult, Pack
 export type { ValidateOptions } from './validate.ts';
 
 // Source parsing
-export { parseSource, parseOwnerRepo, getOwnerRepo } from './source-parser.ts';
+export { parseSource, getOwnerRepo } from './source-parser.ts';
 export { isGitHubHost, getGitHubHost } from './github-host.ts';
 
 // Git operations

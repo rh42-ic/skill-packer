@@ -20,6 +20,7 @@ vi.mock('../skills.ts', () => ({
 
 vi.mock('../source-parser.ts', () => ({
   parseSource: vi.fn(),
+  getOwnerRepo: vi.fn(() => null),
 }));
 
 import { listSkills } from '../list.ts';

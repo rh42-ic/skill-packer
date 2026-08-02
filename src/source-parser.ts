@@ -56,14 +56,6 @@ export function getOwnerRepo(parsed: ParsedSource): string | null {
   return null;
 }
 
-export function parseOwnerRepo(ownerRepo: string): { owner: string; repo: string } | null {
-  const match = ownerRepo.match(/^([^/]+)\/([^/]+)$/);
-  if (match) {
-    return { owner: match[1]!, repo: match[2]! };
-  }
-  return null;
-}
-
 function sanitizeSubpath(subpath: string): string {
   const normalized = subpath.replace(/\\/g, '/');
   const segments = normalized.split('/');

@@ -16,6 +16,7 @@ vi.mock('../validate.ts', () => ({
 
 vi.mock('../skills.ts', () => ({
   discoverSkills: vi.fn(),
+  filterSkills: vi.fn(),
 }));
 
 vi.mock('../git.ts', () => ({
@@ -25,6 +26,7 @@ vi.mock('../git.ts', () => ({
 
 vi.mock('../source-parser.ts', () => ({
   parseSource: vi.fn(),
+  getOwnerRepo: vi.fn(() => null),
 }));
 
 vi.mock('readline', () => ({
@@ -34,7 +36,7 @@ vi.mock('readline', () => ({
 import { packSkill } from '../pack.ts';
 import { listSkills } from '../list.ts';
 import { validateSkillPath } from '../validate.ts';
-import { discoverSkills } from '../skills.ts';
+import { discoverSkills, filterSkills } from '../skills.ts';
 import { cloneRepo, cleanupTempDir } from '../git.ts';
 import { parseSource } from '../source-parser.ts';
 import * as readline from 'readline';
@@ -44,6 +46,7 @@ const mockPackSkill = vi.mocked(packSkill);
 const mockListSkills = vi.mocked(listSkills);
 const mockValidateSkillPath = vi.mocked(validateSkillPath);
 const mockDiscoverSkills = vi.mocked(discoverSkills);
+const mockFilterSkills = vi.mocked(filterSkills);
 const mockParseSource = vi.mocked(parseSource);
 const mockCloneRepo = vi.mocked(cloneRepo);
 const mockCleanupTempDir = vi.mocked(cleanupTempDir);
@@ -81,6 +84,11 @@ describe('CLI', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     // Suppress vitest's default process.exit error
     exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as any);
+    // Default filterSkills: case-insensitive name match
+    mockFilterSkills.mockImplementation((skills: Array<{ name: string; description: string; path: string }>, names: string[]) => {
+      const lowerNames = names.map(n => n.toLowerCase());
+      return skills.filter(s => lowerNames.includes(s.name.toLowerCase()));
+    });
   });
 
   afterEach(() => {

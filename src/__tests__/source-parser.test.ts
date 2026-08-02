@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { parseSource, parseOwnerRepo, getOwnerRepo } from '../source-parser.ts';
+import { parseSource, getOwnerRepo } from '../source-parser.ts';
 import { getGitHubHost } from '../github-host.ts';
 import type { ParsedSource } from '../types.ts';
 
@@ -196,33 +196,6 @@ describe('parseSource', () => {
       expect(result.type).toBe('github');
       expect(result.url).toBe('https://github.com/owner/repo.git');
     });
-  });
-});
-
-describe('parseOwnerRepo', () => {
-  it('parses owner/repo', () => {
-    const result = parseOwnerRepo('anthropics/skills');
-    expect(result).toEqual({ owner: 'anthropics', repo: 'skills' });
-  });
-
-  it('parses owner/repo with special chars', () => {
-    const result = parseOwnerRepo('my-org/my-repo');
-    expect(result).toEqual({ owner: 'my-org', repo: 'my-repo' });
-  });
-
-  it('returns null for single segment', () => {
-    const result = parseOwnerRepo('justname');
-    expect(result).toBeNull();
-  });
-
-  it('returns null for three segments', () => {
-    const result = parseOwnerRepo('a/b/c');
-    expect(result).toBeNull();
-  });
-
-  it('returns null for empty string', () => {
-    const result = parseOwnerRepo('');
-    expect(result).toBeNull();
   });
 });
 

@@ -6,11 +6,11 @@ import { success, error, warn, info, path, count, detail, highlight, indent, bul
 import { readFileSync, existsSync } from 'fs';
 import { join, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
-import { parseSource } from './source-parser.ts';
+import { parseSource, getOwnerRepo } from './source-parser.ts';
 import { listSkills } from './list.ts';
 import { packSkill, formatBytes } from './pack.ts';
 import { validateSkillPath } from './validate.ts';
-import { discoverSkills } from './skills.ts';
+import { discoverSkills, filterSkills } from './skills.ts';
 import { cloneRepo, cleanupTempDir } from './git.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -199,7 +199,8 @@ export async function runPack(args: string[]): Promise<void> {
     if (parsed.type === 'local') {
       skillPath = parsed.localPath!;
     } else {
-      info(`Cloning ${parsed.url}...`);
+      const displayName = getOwnerRepo(parsed) || parsed.url;
+      info(`Cloning ${displayName}...`);
       tempDir = await cloneRepo(parsed.url, parsed.ref);
       skillPath = tempDir;
 
@@ -223,7 +224,14 @@ export async function runPack(args: string[]): Promise<void> {
         process.exit(1);
       }
 
-      const match = skills.find(s => s.name === skillFilter);
+      const matches = filterSkills(skills, [skillFilter]);
+      let match = matches.length > 0 ? matches[0]! : undefined;
+      if (matches.length > 1) {
+        const exact = matches.find(s => s.name === skillFilter);
+        if (exact) {
+          match = exact;
+        }
+      }
       if (!match) {
         error(`Skill "${skillFilter}" not found`);
         console.log(pc.dim(`Available skills: ${skills.map(s => s.name).join(', ')}`));
