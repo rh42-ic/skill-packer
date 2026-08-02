@@ -195,11 +195,10 @@ describe('CLI', () => {
     it('calls listSkills with parsed options', async () => {
       mockListSkills.mockResolvedValue([]);
 
-      await runList(['./skills', '--json', '--verbose']);
+      await runList(['./skills', '--verbose']);
 
       expect(mockListSkills).toHaveBeenCalledWith({
         source: './skills',
-        json: true,
         verbose: true,
         fullDepth: false,
       });
@@ -224,7 +223,7 @@ describe('CLI', () => {
       await main();
 
       expect(mockListSkills).toHaveBeenCalledWith(
-        expect.objectContaining({ source: undefined, json: false, verbose: false, fullDepth: false })
+        expect.objectContaining({ source: undefined, verbose: false, fullDepth: false })
       );
 
       process.argv = oldArgv;

@@ -50,7 +50,6 @@ export interface PackResult {
 
 export interface ListOptions {
   source?: string;
-  json?: boolean;
   verbose?: boolean;
   fullDepth?: boolean;
   all?: boolean;

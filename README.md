@@ -32,6 +32,7 @@ npx skill-packer pack anthropics/skills                    # interactive: list +
 | `--no-validate` | Skip validation |
 | `--strict` | Strict validation: all format rules are errors (see below) |
 | `-v, --verbose` | Verbose output |
+| `-q, --quiet` | Minimal output (paths only) |
 
 When packing a remote repository without `--skill` or `--all` in an interactive terminal, skill-packer lists the discovered skills and asks for confirmation before packing all of them.
 
@@ -43,15 +44,16 @@ Validation runs automatically before packing. In silent mode (default), each pac
 npx skill-packer list                         # current dir
 npx skill-packer list ./skills                # specific dir
 npx skill-packer list vercel-labs/agent-skills # GitHub shorthand
-npx skill-packer list https://github.com/anthropics/skills --json
-npx skill-packer list ./my-repo --full-depth
+npx skill-packer list https://github.com/anthropics/skills
+npx skill-packer list ./my-repo -q
 ```
 
 | Option | Description |
 |--------|-------------|
-| `-j, --json` | JSON output |
 | `-v, --verbose` | Detailed output |
 | `--full-depth` | Search subdirectories even with root SKILL.md |
+| `-a, --all` | Alias for --full-depth |
+| `-q, --quiet` | Minimal output (names only) |
 
 **Source formats:** local path, `owner/repo[/path]`, `https://github.com/...`, `https://gitlab.com/...`, or any Git URL.
 

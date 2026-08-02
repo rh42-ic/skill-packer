@@ -70,9 +70,9 @@ function showBanner(): void {
   console.log(`  ${pc.dim('--no-validate')}       ${pc.dim('Skip validation')}`);
   console.log(`  ${pc.dim('--strict')}            ${pc.dim('Treat unknown frontmatter keys as errors')}`);
   console.log(`  ${pc.dim('-v, --verbose')}       ${pc.dim('Show detailed output')}`);
-  console.log(`  ${pc.dim('-j, --json')}           ${pc.dim('Output as JSON')}`);
   console.log(`  ${pc.dim('--full-depth')}         ${pc.dim('Search all subdirectories')}`);
   console.log(`  ${pc.dim('-a, --all')}                ${pc.dim('Pack all discovered skills')}`);
+  console.log(`  ${pc.dim('-q, --quiet')}          ${pc.dim('Minimal output (paths only)')}`);
   console.log();
 }
 
@@ -98,9 +98,13 @@ ${pc.bold('Check Options:')}
   --strict               Treat unknown frontmatter keys as errors
 
 ${pc.bold('List Options:')}
-  -j, --json             Output as JSON
   -v, --verbose          Show detailed information
   --full-depth           Search all subdirectories even with root SKILL.md
+  -a, --all               Alias for --full-depth
+
+${pc.bold('Global Options:')}
+  -q, --quiet             Minimal output (paths only)
+  -v, --verbose           Show detailed output
 
 ${pc.bold('Source Formats:')}
   Local path:            ./path/to/skill or /absolute/path
@@ -481,7 +485,6 @@ export async function runList(args: string[]): Promise<void> {
   const restArgs = args;
   
   let source: string | undefined;
-  let json = false;
   let verbose = false;
   let fullDepth = false;
   let quiet = false;
@@ -489,9 +492,7 @@ export async function runList(args: string[]): Promise<void> {
   for (let i = 0; i < restArgs.length; i++) {
     const arg = restArgs[i];
     if (arg?.startsWith('-')) {
-      if (arg === '-j' || arg === '--json') {
-        json = true;
-      } else if (arg === '-q' || arg === '--quiet') {
+      if (arg === '-q' || arg === '--quiet') {
         quiet = true;
       } else if (arg === '-v' || arg === '--verbose') {
         verbose = true;
@@ -506,15 +507,10 @@ export async function runList(args: string[]): Promise<void> {
     }
   }
 
-  if (quiet && json) {
-    error('--quiet and --json are mutually exclusive');
-    process.exit(1);
-  }
-
   setQuiet(quiet);
 
   try {
-    await listSkills({ source, json, verbose, fullDepth });
+    await listSkills({ source, verbose, fullDepth });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Unknown error';
     error(message);

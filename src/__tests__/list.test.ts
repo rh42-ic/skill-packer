@@ -117,22 +117,6 @@ describe('listSkills', () => {
     expect(result).toHaveLength(0);
   });
 
-  it('outputs JSON when json option is true', async () => {
-    const mockSkills: Skill[] = [
-      { name: 'json-skill', description: 'JSON output', path: '/path' },
-    ];
-    mockDiscoverSkills.mockResolvedValue(mockSkills);
-
-    const logSpy = vi.spyOn(console, 'log');
-    await listSkills({ json: true });
-
-    // Should have called console.log with JSON string
-    const jsonCall = logSpy.mock.calls.find(
-      (call) => typeof call[0] === 'string' && call[0].startsWith('[')
-    );
-    expect(jsonCall).toBeDefined();
-  });
-
   it('cleans up temp dir on GitCloneError', async () => {
     mockParseSource.mockReturnValue({
       type: 'github',

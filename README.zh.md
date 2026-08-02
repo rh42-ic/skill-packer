@@ -32,6 +32,7 @@ npx skill-packer pack anthropics/skills                    # 交互模式：列�
 | `--no-validate` | 跳过验证 |
 | `--strict` | 严格验证：所有格式规则均视为错误（见下文） |
 | `-v, --verbose` | 详细输出 |
+| `-q, --quiet` | 最小输出（仅路径） |
 
 在交互式终端中打包远程仓库时，如未指定 `--skill` 或 `--all`，skill-packer 会列出发现的 skill 并确认后再全部打包。
 
@@ -43,15 +44,16 @@ npx skill-packer pack anthropics/skills                    # 交互模式：列�
 npx skill-packer list                          # 当前目录
 npx skill-packer list ./skills                 # 指定目录
 npx skill-packer list vercel-labs/agent-skills  # GitHub 简写
-npx skill-packer list https://github.com/anthropics/skills --json
-npx skill-packer list ./my-repo --full-depth
+npx skill-packer list https://github.com/anthropics/skills
+npx skill-packer list ./my-repo -q
 ```
 
 | 选项 | 说明 |
 |------|------|
-| `-j, --json` | JSON 格式输出 |
 | `-v, --verbose` | 详细信息 |
 | `--full-depth` | 搜索所有子目录（即使根目录存在 SKILL.md） |
+| `-a, --all` | --full-depth 的别名 |
+| `-q, --quiet` | 最小输出（仅名称） |
 
 **源格式：** 本地路径、`owner/repo[/path]`、`https://github.com/...`、`https://gitlab.com/...` 或任意 Git URL。
 

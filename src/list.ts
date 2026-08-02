@@ -6,7 +6,7 @@ import { cloneRepo, cleanupTempDir, GitCloneError } from './git.ts';
 import { error, warn, info, path, count, detail, isQuiet } from './print.js';
 
 export async function listSkills(options: ListOptions): Promise<Skill[]> {
-  const { source, json, verbose, fullDepth, all } = options;
+  const { source, verbose, fullDepth, all } = options;
   const effectiveFullDepth = fullDepth || all;
   const cwd = process.cwd();
   
@@ -22,7 +22,7 @@ export async function listSkills(options: ListOptions): Promise<Skill[]> {
       searchPath = parsed.localPath!;
     } else {
       const displayName = getOwnerRepo(parsed) || parsed.url;
-      if (!json && !isQuiet()) {
+      if (!isQuiet()) {
         info(`Fetching from ${displayName}...`);
       }
       
@@ -43,7 +43,7 @@ export async function listSkills(options: ListOptions): Promise<Skill[]> {
     }
   }
   
-  if (!json && !isQuiet()) {
+  if (!isQuiet()) {
     info('Discovering skills...');
   }
   
@@ -51,26 +51,14 @@ export async function listSkills(options: ListOptions): Promise<Skill[]> {
     const skills = await discoverSkills(searchPath, undefined, { fullDepth: effectiveFullDepth });
     
     if (skills.length === 0) {
-      if (json) {
-        console.log('[]');
-      } else {
-        warn('No skills found.');
-        if (!isQuiet()) {
-          console.log(detail('Skills require a SKILL.md with name and description.'));
-        }
+      warn('No skills found.');
+      if (!isQuiet()) {
+        console.log(detail('Skills require a SKILL.md with name and description.'));
       }
       return [];
     }
     
-    if (json) {
-      const output = skills.map((s) => ({
-        name: s.name,
-        description: s.description,
-        path: s.path,
-        pluginName: s.pluginName,
-      }));
-      console.log(JSON.stringify(output, null, 2));
-    } else if (isQuiet()) {
+    if (isQuiet()) {
       for (const skill of skills) {
         console.log(skill.name);
       }
