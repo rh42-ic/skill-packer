@@ -4,20 +4,15 @@ export type { ValidateOptions } from './validate.ts';
 
 // Source parsing
 export { parseSource, getOwnerRepo } from './source-parser.ts';
-export { isGitHubHost, getGitHubHost } from './github-host.ts';
-
-// Git operations
-export { cloneRepo, cleanupTempDir, GitCloneError } from './git.ts';
 
 // Skill discovery & metadata
-export { discoverSkills, parseSkillMd, isSubpathSafe, shouldInstallInternalSkills, getSkillDisplayName, filterSkills } from './skills.ts';
-export { getPluginSkillPaths, getPluginGroupings } from './plugin-manifest.ts';
+export { discoverSkills, parseSkillMd, filterSkills } from './skills.ts';
 
 // Sanitization
-export { sanitizeMetadata, stripTerminalEscapes } from './sanitize.ts';
+export { sanitizeMetadata } from './sanitize.ts';
 
 // Packing
-export { packSkill, shouldExclude, formatBytes } from './pack.ts';
+export { packSkill, shouldExclude } from './pack.ts';
 
 // Validation
 export { validateSkillMd, validateSkillPath } from './validate.ts';
