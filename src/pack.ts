@@ -1,11 +1,11 @@
-import { readdir, mkdir } from 'fs/promises';
+import { readdir, mkdir, readFile, stat } from 'fs/promises';
 import { join, basename, resolve } from 'path';
 import { createWriteStream, existsSync } from 'fs';
-import { ZipArchive } from 'archiver';
+import { Zip, ZipDeflate } from 'fflate';
 import { c as pc } from './print.js';
 import type { PackOptions, PackResult } from './types.ts';
 import { validateSkillPath } from './validate.ts';
-import { success, error, warn, info, path, count, detail, highlight, indent, bullet, dimLabel } from './print.js';
+import { success, error, warn, info, path, count, detail, indent, bullet, dimLabel } from './print.js';
 import { SKIP_DIRS, SKIP_FILES, SKIP_GLOB_REGEXPS } from './excludes.ts';
 
 const SKIP_DIR_SET = new Set(SKIP_DIRS);
@@ -102,7 +102,7 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
   
   return new Promise((resolve, reject) => {
     const output = createWriteStream(outputFilePath);
-    const archive = new ZipArchive({ zlib: { level: 9 } });
+    const zip = new Zip();
 
     let settled = false;
     const fail = (err: Error) => {
@@ -111,15 +111,26 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
       output.destroy();
       reject(err);
     };
+
+    let bytesWritten = 0;
+
+    zip.ondata = (err, chunk, final) => {
+      if (err) {
+        fail(err instanceof Error ? err : new Error(String(err)));
+        return;
+      }
+      output.write(Buffer.from(chunk));
+      bytesWritten += chunk.length;
+      if (final) output.end();
+    };
     
     output.on('close', () => {
       if (settled) return;
-      const size = archive.pointer();
       
       if (verbose) {
         success('Successfully packaged skill!');
         console.log(indent(3, 'Output: ' + path(outputFilePath)));
-        console.log(indent(3, 'Size: ' + formatBytes(size)));
+        console.log(indent(3, 'Size: ' + formatBytes(bytesWritten)));
         console.log(indent(3, 'Files included: ' + count(filesIncluded.length)));
         
         if (filesExcluded.length > 0) {
@@ -138,14 +149,11 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
         skillName,
         filesIncluded: filesIncluded.length,
         filesExcluded,
-        size,
+        size: bytesWritten,
       });
     });
     
-    archive.on('error', fail);
     output.on('error', fail);
-    
-    archive.pipe(output);
     
     const MAX_DEPTH = 20;
 
@@ -166,10 +174,33 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
           continue;
         }
         
+        if (entry.isSymbolicLink()) {
+          // TODO: Symlink security review needed.
+          // Symlinks pointing inside the repo boundary could potentially be
+          // resolved and included. Symlinks pointing outside the repo are a
+          // security risk (e.g., /etc/passwd, ~/.ssh) and must be rejected.
+          // For now, all symlinks are dropped.
+          filesExcluded.push(relativePath);
+          if (verbose) {
+            console.log(`  ${pc.dim('Skipped symlink')} ${relativePath}`);
+          }
+          continue;
+        }
+        
         if (entry.isDirectory()) {
           await addDirectory(fullEntryPath, relativePath, depth + 1);
         } else if (entry.isFile()) {
-          archive.file(fullEntryPath, { name: `${skillName}/${relativePath}` });
+          const fileStat = await stat(fullEntryPath);
+          const content = await readFile(fullEntryPath);
+          const zipEntryName = `${skillName}/${relativePath}`;
+          
+          const zipEntry = new ZipDeflate(zipEntryName, { level: 9 });
+          zipEntry.mtime = fileStat.mtime;
+          zipEntry.os = 3; // Unix
+          zipEntry.attrs = (fileStat.mode & 0o777) << 16;
+          zip.add(zipEntry);
+          zipEntry.push(new Uint8Array(content), true);
+          
           filesIncluded.push(relativePath);
           if (verbose) {
             console.log(`  ${pc.green('Added')} ${relativePath}`);
@@ -179,7 +210,7 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
     };
     
     addDirectory(resolvedSkillPath).then(() => {
-      archive.finalize();
+      zip.end();
     }).catch(fail);
   });
 }

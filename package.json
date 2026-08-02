@@ -41,25 +41,16 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "archiver": "^8.0.0",
+    "fflate": "^0.8.3",
     "picocolors": "^1.1.1",
     "simple-git": "^3.27.0",
     "yaml": "^2.8.3"
   },
   "devDependencies": {
-    "@types/archiver": "^8.0.0",
     "@types/node": "^22.10.0",
     "obuild": "^0.4.22",
     "typescript": "^5.9.3",
     "vitest": "^4.0.17"
-  },
-  "overrides": {
-    "isarray": "npm:@socketregistry/isarray@^1",
-    "safe-buffer": "npm:@socketregistry/safe-buffer@^1"
-  },
-  "resolutions": {
-    "isarray": "npm:@socketregistry/isarray@^1",
-    "safe-buffer": "npm:@socketregistry/safe-buffer@^1"
   },
   "engines": {
     "node": ">=18"
