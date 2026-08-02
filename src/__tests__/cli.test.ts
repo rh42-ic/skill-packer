@@ -230,6 +230,9 @@ describe('CLI', () => {
         url: '/resolved/path',
         localPath: '/resolved/path',
       });
+      mockDiscoverSkills.mockResolvedValue([
+        { name: 'test-skill', description: 'Test skill', path: '/resolved/path' },
+      ]);
       mockPackSkill.mockResolvedValue({
         outputPath: '/output/test-skill.skill',
         skillName: 'test-skill',
@@ -253,6 +256,9 @@ describe('CLI', () => {
         url: '/resolved/path',
         localPath: '/resolved/path',
       });
+      mockDiscoverSkills.mockResolvedValue([
+        { name: 'test-skill', description: 'Test skill', path: '/resolved/path' },
+      ]);
       mockPackSkill.mockResolvedValue({
         outputPath: '/custom/output.skill',
         skillName: 'output',
@@ -345,6 +351,9 @@ describe('CLI', () => {
         url: '/resolved/path',
         localPath: '/resolved/path',
       });
+      mockDiscoverSkills.mockResolvedValue([
+        { name: 'test-skill', description: 'Test skill', path: '/resolved/path' },
+      ]);
       mockPackSkill.mockResolvedValue({
         outputPath: '/output/test-skill.skill',
         skillName: 'test-skill',

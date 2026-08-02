@@ -8,6 +8,7 @@ import { join, resolve } from 'path';
 import { tmpdir } from 'os';
 import { getPluginSkillPaths, getPluginGroupings } from '../src/plugin-manifest.ts';
 import { discoverSkills } from '../src/skills.ts';
+import { writeJson, writeSkill } from './helpers.js';
 
 describe('getPluginSkillPaths', () => {
   let testDir: string;
@@ -21,13 +22,8 @@ describe('getPluginSkillPaths', () => {
     rmSync(testDir, { recursive: true, force: true });
   });
 
-  function writeManifest(name: 'marketplace.json' | 'plugin.json', content: unknown) {
-    mkdirSync(join(testDir, '.claude-plugin'), { recursive: true });
-    writeFileSync(join(testDir, '.claude-plugin', name), JSON.stringify(content));
-  }
-
   it('returns declared skill dirs and conventional skills dir for marketplace plugins', async () => {
-    writeManifest('marketplace.json', {
+    writeJson(join(testDir, '.claude-plugin', 'marketplace.json'), {
       plugins: [
         {
           name: 'test-plugin',
@@ -47,7 +43,7 @@ describe('getPluginSkillPaths', () => {
   });
 
   it('respects metadata.pluginRoot', async () => {
-    writeManifest('marketplace.json', {
+    writeJson(join(testDir, '.claude-plugin', 'marketplace.json'), {
       metadata: { pluginRoot: './plugins' },
       plugins: [{ name: 'my-plugin', source: './my-plugin', skills: ['./skills/my-skill'] }],
     });
@@ -59,7 +55,7 @@ describe('getPluginSkillPaths', () => {
   });
 
   it('returns conventional skills dir from plugin.json', async () => {
-    writeManifest('plugin.json', {
+    writeJson(join(testDir, '.claude-plugin', 'plugin.json'), {
       name: 'single-plugin',
       skills: ['./custom/dir'],
     });
@@ -71,7 +67,7 @@ describe('getPluginSkillPaths', () => {
   });
 
   it('skips remote source objects', async () => {
-    writeManifest('marketplace.json', {
+    writeJson(join(testDir, '.claude-plugin', 'marketplace.json'), {
       plugins: [{ name: 'remote', source: { source: 'github', repo: 'owner/repo' }, skills: ['./skills/x'] }],
     });
 
@@ -95,7 +91,7 @@ describe('getPluginSkillPaths', () => {
   });
 
   it('rejects plugin sources and skill paths without ./ prefix', async () => {
-    writeManifest('marketplace.json', {
+    writeJson(join(testDir, '.claude-plugin', 'marketplace.json'), {
       plugins: [
         { name: 'bare', source: 'bare-plugin', skills: ['./skills/x'] }, // invalid source
         { name: 'valid', source: './valid-plugin', skills: ['bare-skill-path'] }, // invalid skill path
@@ -108,7 +104,7 @@ describe('getPluginSkillPaths', () => {
   });
 
   it('rejects traversal paths that escape basePath', async () => {
-    writeManifest('marketplace.json', {
+    writeJson(join(testDir, '.claude-plugin', 'marketplace.json'), {
       plugins: [
         { source: './ok', skills: ['../../../outside/skill'] },
         { source: './../escape', skills: ['./skills/x'] },
@@ -135,13 +131,8 @@ describe('getPluginGroupings', () => {
     rmSync(testDir, { recursive: true, force: true });
   });
 
-  function writeManifest(name: 'marketplace.json' | 'plugin.json', content: unknown) {
-    mkdirSync(join(testDir, '.claude-plugin'), { recursive: true });
-    writeFileSync(join(testDir, '.claude-plugin', name), JSON.stringify(content));
-  }
-
   it('maps skill dirs to plugin names from marketplace.json', async () => {
-    writeManifest('marketplace.json', {
+    writeJson(join(testDir, '.claude-plugin', 'marketplace.json'), {
       metadata: { pluginRoot: './plugins' },
       plugins: [
         { name: 'plugin-a', source: './plugin-a', skills: ['./skills/skill-1'] },
@@ -156,7 +147,7 @@ describe('getPluginGroupings', () => {
   });
 
   it('maps skill dirs to plugin names from plugin.json', async () => {
-    writeManifest('plugin.json', {
+    writeJson(join(testDir, '.claude-plugin', 'plugin.json'), {
       name: 'single-plugin',
       skills: ['./skills/only-skill'],
     });
@@ -167,7 +158,7 @@ describe('getPluginGroupings', () => {
   });
 
   it('skips remote source objects and plugins without names', async () => {
-    writeManifest('marketplace.json', {
+    writeJson(join(testDir, '.claude-plugin', 'marketplace.json'), {
       plugins: [
         { source: './remote', skills: ['./skills/x'] }, // no name
         { name: 'remote-plugin', source: { source: 'github', repo: 'owner/repo' }, skills: ['./skills/y'] },
@@ -199,21 +190,8 @@ describe('discoverSkills with plugin manifests', () => {
     rmSync(testDir, { recursive: true, force: true });
   });
 
-  function writeManifest(name: 'marketplace.json' | 'plugin.json', content: unknown) {
-    mkdirSync(join(testDir, '.claude-plugin'), { recursive: true });
-    writeFileSync(join(testDir, '.claude-plugin', name), JSON.stringify(content));
-  }
-
-  function writeSkill(relDir: string, name: string) {
-    mkdirSync(join(testDir, relDir), { recursive: true });
-    writeFileSync(
-      join(testDir, relDir, 'SKILL.md'),
-      `---\nname: ${name}\ndescription: ${name} description\n---\n\n# ${name}\n`
-    );
-  }
-
   it('should discover skills from marketplace.json', async () => {
-    writeManifest('marketplace.json', {
+    writeJson(join(testDir, '.claude-plugin', 'marketplace.json'), {
       name: 'test-marketplace',
       owner: { name: 'Test' },
       plugins: [
@@ -224,7 +202,7 @@ describe('discoverSkills with plugin manifests', () => {
         },
       ],
     });
-    writeSkill('plugins/test-plugin/skills/test-skill', 'manifest-skill');
+    writeSkill(join(testDir, 'plugins/test-plugin/skills/test-skill'), 'manifest-skill');
 
     const skills = await discoverSkills(testDir);
     expect(skills).toHaveLength(1);
@@ -232,11 +210,11 @@ describe('discoverSkills with plugin manifests', () => {
   });
 
   it('should respect metadata.pluginRoot', async () => {
-    writeManifest('marketplace.json', {
+    writeJson(join(testDir, '.claude-plugin', 'marketplace.json'), {
       metadata: { pluginRoot: './plugins' },
       plugins: [{ name: 'my-plugin', source: './my-plugin', skills: ['./skills/my-skill'] }],
     });
-    writeSkill('plugins/my-plugin/skills/my-skill', 'pluginroot-skill');
+    writeSkill(join(testDir, 'plugins/my-plugin/skills/my-skill'), 'pluginroot-skill');
 
     const skills = await discoverSkills(testDir);
     expect(skills).toHaveLength(1);
@@ -244,11 +222,11 @@ describe('discoverSkills with plugin manifests', () => {
   });
 
   it('should discover skills from plugin.json', async () => {
-    writeManifest('plugin.json', {
+    writeJson(join(testDir, '.claude-plugin', 'plugin.json'), {
       name: 'single-plugin',
       skills: ['./skills/single-skill'],
     });
-    writeSkill('skills/single-skill', 'single-plugin-skill');
+    writeSkill(join(testDir, 'skills/single-skill'), 'single-plugin-skill');
 
     const skills = await discoverSkills(testDir);
     expect(skills).toHaveLength(1);
@@ -256,7 +234,7 @@ describe('discoverSkills with plugin manifests', () => {
   });
 
   it('should skip remote source objects', async () => {
-    writeManifest('marketplace.json', {
+    writeJson(join(testDir, '.claude-plugin', 'marketplace.json'), {
       plugins: [
         {
           name: 'remote-plugin',
@@ -285,23 +263,23 @@ describe('discoverSkills with plugin manifests', () => {
   });
 
   it('should deduplicate skills found via manifest and priority dirs', async () => {
-    writeManifest('plugin.json', { skills: ['./skills/dupe-skill'] });
-    writeSkill('skills/dupe-skill', 'dupe-skill');
+    writeJson(join(testDir, '.claude-plugin', 'plugin.json'), { skills: ['./skills/dupe-skill'] });
+    writeSkill(join(testDir, 'skills/dupe-skill'), 'dupe-skill');
 
     const skills = await discoverSkills(testDir);
     expect(skills).toHaveLength(1);
   });
 
   it('should discover multiple skills from multiple plugins', async () => {
-    writeManifest('marketplace.json', {
+    writeJson(join(testDir, '.claude-plugin', 'marketplace.json'), {
       plugins: [
         { name: 'plugin-a', source: './plugin-a', skills: ['./skills/skill-1', './skills/skill-2'] },
         { name: 'plugin-b', source: './plugin-b', skills: ['./skills/skill-3'] },
       ],
     });
-    writeSkill('plugin-a/skills/skill-1', 'skill-1');
-    writeSkill('plugin-a/skills/skill-2', 'skill-2');
-    writeSkill('plugin-b/skills/skill-3', 'skill-3');
+    writeSkill(join(testDir, 'plugin-a/skills/skill-1'), 'skill-1');
+    writeSkill(join(testDir, 'plugin-a/skills/skill-2'), 'skill-2');
+    writeSkill(join(testDir, 'plugin-b/skills/skill-3'), 'skill-3');
 
     const skills = await discoverSkills(testDir);
     expect(skills).toHaveLength(3);
@@ -309,10 +287,10 @@ describe('discoverSkills with plugin manifests', () => {
   });
 
   it('should handle plugin without source (root-level plugin)', async () => {
-    writeManifest('marketplace.json', {
+    writeJson(join(testDir, '.claude-plugin', 'marketplace.json'), {
       plugins: [{ name: 'root-plugin', skills: ['./skills/root-skill'] }],
     });
-    writeSkill('skills/root-skill', 'root-skill');
+    writeSkill(join(testDir, 'skills/root-skill'), 'root-skill');
 
     const skills = await discoverSkills(testDir);
     expect(skills).toHaveLength(1);
@@ -320,11 +298,11 @@ describe('discoverSkills with plugin manifests', () => {
   });
 
   it('should discover skills from conventional skills/ when plugin.json has no skills array', async () => {
-    writeManifest('plugin.json', {
+    writeJson(join(testDir, '.claude-plugin', 'plugin.json'), {
       name: 'plugin-without-skills-field',
       description: 'A plugin that does not declare skills explicitly',
     });
-    writeSkill('skills/undeclared-skill', 'undeclared-skill');
+    writeSkill(join(testDir, 'skills/undeclared-skill'), 'undeclared-skill');
 
     const skills = await discoverSkills(testDir);
     expect(skills).toHaveLength(1);
@@ -332,8 +310,8 @@ describe('discoverSkills with plugin manifests', () => {
   });
 
   it('should discover skills from conventional skills/ when plugin.json has empty skills array', async () => {
-    writeManifest('plugin.json', { name: 'plugin-with-empty-skills', skills: [] });
-    writeSkill('skills/empty-array-skill', 'empty-array-skill');
+    writeJson(join(testDir, '.claude-plugin', 'plugin.json'), { name: 'plugin-with-empty-skills', skills: [] });
+    writeSkill(join(testDir, 'skills/empty-array-skill'), 'empty-array-skill');
 
     const skills = await discoverSkills(testDir);
     expect(skills).toHaveLength(1);
@@ -341,10 +319,10 @@ describe('discoverSkills with plugin manifests', () => {
   });
 
   it('should discover skills from marketplace plugin without skills array', async () => {
-    writeManifest('marketplace.json', {
+    writeJson(join(testDir, '.claude-plugin', 'marketplace.json'), {
       plugins: [{ name: 'plugin-no-skills-field', source: './my-plugin' }],
     });
-    writeSkill('my-plugin/skills/auto-discovered', 'auto-discovered');
+    writeSkill(join(testDir, 'my-plugin/skills/auto-discovered'), 'auto-discovered');
 
     const skills = await discoverSkills(testDir);
     expect(skills).toHaveLength(1);
@@ -352,11 +330,11 @@ describe('discoverSkills with plugin manifests', () => {
   });
 
   it('should discover both explicit and conventional skills from same plugin', async () => {
-    writeManifest('marketplace.json', {
+    writeJson(join(testDir, '.claude-plugin', 'marketplace.json'), {
       plugins: [{ name: 'mixed-plugin', source: './mixed', skills: ['./custom-skills/explicit-skill'] }],
     });
-    writeSkill('mixed/custom-skills/explicit-skill', 'explicit-skill');
-    writeSkill('mixed/skills/conventional-skill', 'conventional-skill');
+    writeSkill(join(testDir, 'mixed/custom-skills/explicit-skill'), 'explicit-skill');
+    writeSkill(join(testDir, 'mixed/skills/conventional-skill'), 'conventional-skill');
 
     const skills = await discoverSkills(testDir);
     expect(skills).toHaveLength(2);
@@ -364,11 +342,11 @@ describe('discoverSkills with plugin manifests', () => {
   });
 
   it('should assign pluginName from plugin groupings', async () => {
-    writeManifest('marketplace.json', {
+    writeJson(join(testDir, '.claude-plugin', 'marketplace.json'), {
       metadata: { pluginRoot: './plugins' },
       plugins: [{ name: 'grouped-plugin', source: './grouped-plugin', skills: ['./skills/grouped-skill'] }],
     });
-    writeSkill('plugins/grouped-plugin/skills/grouped-skill', 'grouped-skill');
+    writeSkill(join(testDir, 'plugins/grouped-plugin/skills/grouped-skill'), 'grouped-skill');
 
     const skills = await discoverSkills(testDir);
     expect(skills).toHaveLength(1);
@@ -376,13 +354,13 @@ describe('discoverSkills with plugin manifests', () => {
   });
 
   it('should reject paths that traverse outside basePath', async () => {
-    writeManifest('marketplace.json', {
+    writeJson(join(testDir, '.claude-plugin', 'marketplace.json'), {
       plugins: [
         { source: '../../../etc', skills: ['./passwd'] },
         { source: 'legit', skills: ['../../../outside/skill'] },
       ],
     });
-    writeSkill('legit/skills/valid-skill', 'valid-skill');
+    writeSkill(join(testDir, 'legit/skills/valid-skill'), 'valid-skill');
 
     // A skill created outside testDir must NOT be discovered
     const outsideDir = join(testDir, '..', `outside-${Date.now()}`);
@@ -406,8 +384,8 @@ description: Should not be discovered
   });
 
   it('should reject absolute paths in manifests', async () => {
-    writeManifest('plugin.json', { skills: ['/etc/passwd', '/tmp/malicious-skill'] });
-    writeSkill('skills/safe-skill', 'safe-skill');
+    writeJson(join(testDir, '.claude-plugin', 'plugin.json'), { skills: ['/etc/passwd', '/tmp/malicious-skill'] });
+    writeSkill(join(testDir, 'skills/safe-skill'), 'safe-skill');
 
     const skills = await discoverSkills(testDir);
     expect(skills).toHaveLength(1);
@@ -415,12 +393,12 @@ description: Should not be discovered
   });
 
   it('should reject paths without ./ prefix (per Claude Code convention)', async () => {
-    writeManifest('marketplace.json', {
+    writeJson(join(testDir, '.claude-plugin', 'marketplace.json'), {
       metadata: { pluginRoot: 'custom-plugins' }, // Missing './' prefix - INVALID
       plugins: [{ source: './my-plugin', skills: ['./custom-skills/my-skill'] }],
     });
-    writeSkill('custom-plugins/my-plugin/custom-skills/my-skill', 'unreachable-skill');
-    writeSkill('skills/standard-skill', 'standard-skill');
+    writeSkill(join(testDir, 'custom-plugins/my-plugin/custom-skills/my-skill'), 'unreachable-skill');
+    writeSkill(join(testDir, 'skills/standard-skill'), 'standard-skill');
 
     const skills = await discoverSkills(testDir);
     expect(skills).toHaveLength(1);
@@ -428,14 +406,14 @@ description: Should not be discovered
   });
 
   it('should reject plugin sources without ./ prefix', async () => {
-    writeManifest('marketplace.json', {
+    writeJson(join(testDir, '.claude-plugin', 'marketplace.json'), {
       plugins: [
         { source: 'bare-plugin', skills: ['./skills/skill1'] }, // Invalid - no './'
         { source: './valid-plugin', skills: ['./skills/skill2'] }, // Valid
       ],
     });
-    writeSkill('bare-plugin/skills/skill1', 'bare-skill');
-    writeSkill('valid-plugin/skills/skill2', 'valid-skill');
+    writeSkill(join(testDir, 'bare-plugin/skills/skill1'), 'bare-skill');
+    writeSkill(join(testDir, 'valid-plugin/skills/skill2'), 'valid-skill');
 
     const skills = await discoverSkills(testDir);
     expect(skills).toHaveLength(1);
@@ -443,12 +421,12 @@ description: Should not be discovered
   });
 
   it('should reject skill paths without ./ prefix', async () => {
-    writeManifest('plugin.json', {
+    writeJson(join(testDir, '.claude-plugin', 'plugin.json'), {
       skills: ['invalid-loc/bare-skill', './valid-loc/valid-skill'],
     });
-    writeSkill('invalid-loc/bare-skill', 'bare-skill');
-    writeSkill('valid-loc/valid-skill', 'valid-skill');
-    writeSkill('skills/standard', 'standard-skill');
+    writeSkill(join(testDir, 'invalid-loc/bare-skill'), 'bare-skill');
+    writeSkill(join(testDir, 'valid-loc/valid-skill'), 'valid-skill');
+    writeSkill(join(testDir, 'skills/standard'), 'standard-skill');
 
     const skills = await discoverSkills(testDir);
     expect(skills.map((s) => s.name).sort()).toEqual(['standard-skill', 'valid-skill']);

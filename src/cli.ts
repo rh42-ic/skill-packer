@@ -3,7 +3,7 @@
 import pc from 'picocolors';
 import * as readline from 'readline';
 import { success, error, warn, info, path, count, detail, highlight, indent, bullet, dimLabel } from './print.js';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { join, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
 import { parseSource } from './source-parser.ts';
@@ -138,6 +138,11 @@ ${BOLD}Examples:${RESET}
 }
 
 export async function runPack(args: string[]): Promise<void> {
+  if (args[0] === '--help' || args[0] === '-h') {
+    showHelp();
+    return;
+  }
+
   if (args.length === 0 || args[0]?.startsWith('-')) {
     error('Missing source');
     console.log('Usage: skill-packer pack <source> [options]');
@@ -285,8 +290,12 @@ export async function runPack(args: string[]): Promise<void> {
       return; // Skip the single-pack path below
     }
 
-    // No --skill and no --all for a remote source: discover and let user pick interactively
-    if (!skillFilter && parsed.type !== 'local') {
+    // No --skill and no --all: discover skills and let user pick interactively.
+    // Local directories with a root SKILL.md are packed directly (so validation
+    // still applies); everything else (remote sources, or local dirs that only
+    // contain nested skills) is discovered first.
+    const shouldDiscover = parsed.type !== 'local' || !existsSync(join(skillPath, 'SKILL.md'));
+    if (!skillFilter && shouldDiscover) {
       const skills = await discoverSkills(skillPath, undefined, { fullDepth: true });
 
       if (skills.length === 0) {

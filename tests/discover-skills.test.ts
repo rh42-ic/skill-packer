@@ -5,18 +5,11 @@
  * skill container directories (e.g. `skills/<category>/<skill>/SKILL.md`).
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, rmSync, writeFileSync } from 'fs';
+import { mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { discoverSkills } from '../src/skills.ts';
-
-function writeSkill(dir: string, name: string): void {
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(
-    join(dir, 'SKILL.md'),
-    `---\nname: ${name}\ndescription: ${name} description\n---\n\n# ${name}\n`
-  );
-}
+import { writeSkill } from './helpers.js';
 
 describe('discoverSkills with fullDepth option', () => {
   let testDir: string;
