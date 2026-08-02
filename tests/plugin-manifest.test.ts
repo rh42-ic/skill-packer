@@ -6,8 +6,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 import { tmpdir } from 'os';
-import { getPluginSkillPaths, getPluginGroupings } from '../plugin-manifest.ts';
-import { discoverSkills } from '../skills.ts';
+import { getPluginSkillPaths, getPluginGroupings } from '../src/plugin-manifest.ts';
+import { discoverSkills } from '../src/skills.ts';
 
 describe('getPluginSkillPaths', () => {
   let testDir: string;

@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { discoverSkills } from '../skills.ts';
+import { discoverSkills } from '../src/skills.ts';
 
 function writeSkill(dir: string, name: string): void {
   mkdirSync(dir, { recursive: true });
