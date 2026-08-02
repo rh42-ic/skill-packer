@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import pc from 'picocolors';
+import * as readline from 'readline';
 import { success, error, warn, info, path, count, detail, highlight, indent, bullet, dimLabel } from './print.js';
 import { readFileSync } from 'fs';
 import { join, dirname, basename } from 'path';
@@ -11,7 +12,6 @@ import { packSkill, formatBytes } from './pack.ts';
 import { validateSkillPath } from './validate.ts';
 import { discoverSkills } from './skills.ts';
 import { cloneRepo, cleanupTempDir } from './git.ts';
-import type { Skill } from './types.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -317,28 +317,26 @@ export async function runPack(args: string[]): Promise<void> {
         process.exit(1);
       }
 
-      const { searchMultiselect, cancelSymbol } = await import('./prompts/search-multiselect.ts');
+      // Interactive: list skills and confirm pack all
+      console.log(`\n${pc.bold('Skills found')}:`);
+      for (const skill of skills) {
+        console.log(`  ${pc.green('•')} ${pc.bold(skill.name)} ${pc.dim(`(${skill.pluginName || 'standalone'})`)}`);
+      }
 
-      const selected = await searchMultiselect<Skill>({
-        message: 'Select skills to pack',
-        items: skills.map(s => ({
-          value: s,
-          label: s.name,
-          detail: s.description,
-          group: s.pluginName,
-        })),
-        required: true,
-        searchable: true,
-        showDetail: true,
-        showSelectedSummary: true,
+      const confirmed = await new Promise<boolean>((resolve) => {
+        const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+        rl.question(`\n${pc.bold(`Pack all ${skills.length} skills?`)} ${pc.dim('[y/N]')} `, (answer) => {
+          rl.close();
+          resolve(answer.trim().toLowerCase() === 'y' || answer.trim().toLowerCase() === 'yes');
+        });
       });
 
-      if (typeof selected === 'symbol') {
-        console.log(detail('Cancelled'));
+      if (!confirmed) {
+        console.log(pc.dim('Cancelled'));
         process.exit(0);
       }
 
-      for (const skill of selected) {
+      for (const skill of skills) {
         const result = await packSkill({
           skillPath: skill.path,
           outputPath: outputDir,

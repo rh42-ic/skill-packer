@@ -20,17 +20,20 @@ npx skill-packer pack anthropics/skills -s skill-creator # GitHub 简写
 npx skill-packer pack https://github.com/anthropics/skills -s skill-creator
 npx skill-packer pack https://github.com/anthropics/skills --all  # 打包全部 skill
 npx skill-packer pack ./my-skill -o ./dist -f           # 输出目录 + 覆盖
+npx skill-packer pack anthropics/skills                    # 交互模式：列出后确认全部打包
 ```
 
 | 选项 | 说明 |
 |------|------|
-| `-s, --skill <name>` | skill 名称（远程 URL 时必需，`--all` 除外） |
+| `-s, --skill <name>` | skill 名称（TTY 下省略则交互确认） |
 | `-o, --output <dir>` | 输出目录（默认：当前目录） |
 | `-f, --force` | 覆盖已有文件 |
 | `-a, --all` | 打包仓库中发现的所有 skill |
 | `--no-validate` | 跳过验证 |
 | `--strict` | 严格验证：所有格式规则均视为错误（见下文） |
 | `-v, --verbose` | 详细输出 |
+
+在交互式终端中打包远程仓库时，如未指定 `--skill` 或 `--all`，skill-packer 会列出发现的 skill 并确认后再全部打包。
 
 打包前自动验证。静默模式（默认）下每个文件打印 `✓ Packed: {路径} ({大小})`。加 `-v` 查看详细的逐文件输出。未知 frontmatter 字段默认仅警告，加 `--strict` 则视为错误。
 
@@ -73,8 +76,6 @@ npx skill-packer check ./my-skill --strict
 **非严格模式（默认）：** `name` 最长 64、kebab-case、连字符规则、`description` 最长 1024、`compatibility` 最长 500 为 **警告**（不影响有效性）。仍有硬上限：`name` >256、`description` >4096、`compatibility` >4096 为错误。
 
 **严格模式（`--strict`）：** 所有格式规则均按较低阈值视为错误。未知 frontmatter 字段同样视为错误（默认仅警告）。
-
-验证规则参考 [skill-creator](https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md) 规范。
 
 ## 开发
 

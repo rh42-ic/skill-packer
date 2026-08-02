@@ -27,12 +27,17 @@ vi.mock('../source-parser.ts', () => ({
   parseSource: vi.fn(),
 }));
 
+vi.mock('readline', () => ({
+  createInterface: vi.fn(),
+}));
+
 import { packSkill } from '../pack.ts';
 import { listSkills } from '../list.ts';
 import { validateSkillPath } from '../validate.ts';
 import { discoverSkills } from '../skills.ts';
 import { cloneRepo } from '../git.ts';
 import { parseSource } from '../source-parser.ts';
+import * as readline from 'readline';
 import { runPack, runList, runCheck, main } from '../cli.ts';
 
 const mockPackSkill = vi.mocked(packSkill);
@@ -41,6 +46,7 @@ const mockValidateSkillPath = vi.mocked(validateSkillPath);
 const mockDiscoverSkills = vi.mocked(discoverSkills);
 const mockParseSource = vi.mocked(parseSource);
 const mockCloneRepo = vi.mocked(cloneRepo);
+const mockCreateInterface = vi.mocked(readline.createInterface);
 
 // Helper to capture exit
 function mockProcessExit(expectedCode?: number) {
@@ -646,6 +652,97 @@ describe('CLI', () => {
       expect(output).toContain('Multiple skills found');
       expect(output).toContain('skill-a');
       expect(output).toContain('skill-b');
+    });
+
+    it('lists skills, prompts user, and packs all on "y" in TTY', async () => {
+      const originalTTY = process.stdin.isTTY;
+      Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
+
+      mockDiscoverSkills.mockResolvedValue([
+        { name: 'skill-a', description: 'A', path: '/tmp/a' },
+        { name: 'skill-b', description: 'B', path: '/tmp/b' },
+      ]);
+
+      mockCreateInterface.mockReturnValue({
+        question: vi.fn((_query: string, callback: (answer: string) => void) => {
+          callback('y');
+          return { close: vi.fn() } as any;
+        }),
+        close: vi.fn(),
+      } as any);
+
+      const logSpy = vi.spyOn(console, 'log');
+      try {
+        await runPack(['user/repo']);
+      } finally {
+        Object.defineProperty(process.stdin, 'isTTY', { value: originalTTY, configurable: true });
+      }
+
+      const output = logSpy.mock.calls.map(c => c.join(' ')).join('\n');
+      expect(output).toContain('Skills found');
+      expect(output).toContain('skill-a');
+      expect(output).toContain('skill-b');
+      expect(mockPackSkill).toHaveBeenCalledTimes(2);
+      expect(mockPackSkill).toHaveBeenCalledWith(expect.objectContaining({ skillPath: '/tmp/a' }));
+      expect(mockPackSkill).toHaveBeenCalledWith(expect.objectContaining({ skillPath: '/tmp/b' }));
+    });
+
+    it('lists skills, prompts user, and cancels on "n" in TTY', async () => {
+      const originalTTY = process.stdin.isTTY;
+      Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
+
+      mockDiscoverSkills.mockResolvedValue([
+        { name: 'skill-a', description: 'A', path: '/tmp/a' },
+        { name: 'skill-b', description: 'B', path: '/tmp/b' },
+      ]);
+
+      mockCreateInterface.mockReturnValue({
+        question: vi.fn((_query: string, callback: (answer: string) => void) => {
+          callback('n');
+          return { close: vi.fn() } as any;
+        }),
+        close: vi.fn(),
+      } as any);
+
+      const logSpy = vi.spyOn(console, 'log');
+      try {
+        await assertExits(() => runPack(['user/repo']), 0);
+      } finally {
+        Object.defineProperty(process.stdin, 'isTTY', { value: originalTTY, configurable: true });
+      }
+
+      const output = logSpy.mock.calls.map(c => c.join(' ')).join('\n');
+      expect(output).toContain('Skills found');
+      expect(output).toContain('Cancelled');
+      expect(mockPackSkill).not.toHaveBeenCalled();
+    });
+
+    it('lists skills, prompts user, and packs all on "yes" in TTY', async () => {
+      const originalTTY = process.stdin.isTTY;
+      Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
+
+      mockDiscoverSkills.mockResolvedValue([
+        { name: 'skill-a', description: 'A', path: '/tmp/a' },
+        { name: 'skill-b', description: 'B', path: '/tmp/b' },
+      ]);
+
+      mockCreateInterface.mockReturnValue({
+        question: vi.fn((_query: string, callback: (answer: string) => void) => {
+          callback('yes');
+          return { close: vi.fn() } as any;
+        }),
+        close: vi.fn(),
+      } as any);
+
+      try {
+        await runPack(['user/repo']);
+      } finally {
+        Object.defineProperty(process.stdin, 'isTTY', { value: originalTTY, configurable: true });
+      }
+
+      expect(mockPackSkill).toHaveBeenCalledTimes(2);
+      expect(mockPackSkill).toHaveBeenCalledWith(expect.objectContaining({ skillPath: '/tmp/a' }));
+      expect(mockPackSkill).toHaveBeenCalledWith(expect.objectContaining({ skillPath: '/tmp/b' }));
     });
   });
 });
