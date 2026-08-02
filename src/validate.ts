@@ -61,11 +61,11 @@ export function validateSkillMd(content: string, opts?: ValidateOptions): Valida
   if (typeof name === 'string') {
     const trimmedName = name.trim();
     if (trimmedName) {
-      const nameLenError = trimmedName.length > (strict ? 64 : 256);
-      const nameLenWarn = !strict && trimmedName.length > 64 && trimmedName.length <= 256;
-      if (nameLenError) {
+      const isNameTooLong = trimmedName.length > (strict ? 64 : 256);
+      const isNameLengthWarnable = !strict && trimmedName.length > 64 && trimmedName.length <= 256;
+      if (isNameTooLong) {
         errors.push(`Name is too long (${trimmedName.length} characters). Maximum is ${strict ? 64 : 256} characters.`);
-      } else if (nameLenWarn) {
+      } else if (isNameLengthWarnable) {
         warnings.push(`Name is too long (${trimmedName.length} characters). Maximum is 64 characters.`);
       }
       if (!/^[a-z0-9-]+$/.test(trimmedName)) {
@@ -88,11 +88,11 @@ export function validateSkillMd(content: string, opts?: ValidateOptions): Valida
       if (trimmedDesc.includes('<') || trimmedDesc.includes('>')) {
         errors.push('Description cannot contain angle brackets (< or >)');
       }
-      const descLenError = trimmedDesc.length > (strict ? 1024 : 4096);
-      const descLenWarn = !strict && trimmedDesc.length > 1024 && trimmedDesc.length <= 4096;
-      if (descLenError) {
+      const isDescTooLong = trimmedDesc.length > (strict ? 1024 : 4096);
+      const isDescLengthWarnable = !strict && trimmedDesc.length > 1024 && trimmedDesc.length <= 4096;
+      if (isDescTooLong) {
         errors.push(`Description is too long (${trimmedDesc.length} characters). Maximum is ${strict ? 1024 : 4096} characters.`);
-      } else if (descLenWarn) {
+      } else if (isDescLengthWarnable) {
         warnings.push(`Description is too long (${trimmedDesc.length} characters). Maximum is 1024 characters.`);
       }
     }
@@ -105,11 +105,11 @@ export function validateSkillMd(content: string, opts?: ValidateOptions): Valida
     if (typeof compatibility !== 'string') {
       errors.push(`Compatibility must be a string, got ${typeof compatibility}`);
     } else {
-      const compatLenError = compatibility.length > (strict ? 500 : 4096);
-      const compatLenWarn = !strict && compatibility.length > 500 && compatibility.length <= 4096;
-      if (compatLenError) {
+      const isCompatTooLong = compatibility.length > (strict ? 500 : 4096);
+      const isCompatLengthWarnable = !strict && compatibility.length > 500 && compatibility.length <= 4096;
+      if (isCompatTooLong) {
         errors.push(`Compatibility is too long (${compatibility.length} characters). Maximum is ${strict ? 500 : 4096} characters.`);
-      } else if (compatLenWarn) {
+      } else if (isCompatLengthWarnable) {
         warnings.push(`Compatibility is too long (${compatibility.length} characters). Maximum is 500 characters.`);
       }
     }

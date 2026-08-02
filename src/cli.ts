@@ -27,11 +27,6 @@ function getVersion(): string {
 
 const VERSION = getVersion();
 
-const RESET = '\x1b[0m';
-const BOLD = '\x1b[1m';
-const DIM = '\x1b[38;5;102m';
-const TEXT = '\x1b[38;5;145m';
-
 const LOGO_LINES = [                               
   '▄█████ ██ ▄█▀ ██ ██     ██                 ',
   '▀▀▀▄▄▄ ████   ██ ██     ██                 ',
@@ -54,42 +49,42 @@ const GRAYS = [
 function showLogo(): void {
   console.log();
   LOGO_LINES.forEach((line, i) => {
-    console.log(`${GRAYS[i]}${line}${RESET}`);
+    console.log(`${GRAYS[i]}${line}`);
   });
 }
 
 function showBanner(): void {
   showLogo();
   console.log();
-  console.log(`${DIM}Pack skills into .skill files${RESET}`);
+  console.log(pc.dim('Pack skills into .skill files'));
   console.log();
-  console.log(`  ${DIM}$${RESET} ${TEXT}npx skill-packer pack ${DIM}<path>${RESET}      ${DIM}Pack a skill to .skill file${RESET}`);
-  console.log(`  ${DIM}$${RESET} ${TEXT}npx skill-packer pack ${DIM}<url> --skill <name>${RESET}  ${DIM}Pack from remote${RESET}`);
-  console.log(`  ${DIM}$${RESET} ${TEXT}npx skill-packer list ${DIM}<url>${RESET}       ${DIM}List skills from remote${RESET}`);
+  console.log(`  ${pc.dim('$')} ${pc.dim('npx skill-packer pack <path>')}      ${pc.dim('Pack a skill to .skill file')}`);
+  console.log(`  ${pc.dim('$')} ${pc.dim('npx skill-packer pack <url> --skill <name>')}  ${pc.dim('Pack from remote')}`);
+  console.log(`  ${pc.dim('$')} ${pc.dim('npx skill-packer list <url>')}       ${pc.dim('List skills from remote')}`);
   console.log();
-  console.log(`${DIM}Options:${RESET}`);
-  console.log(`  ${TEXT}-o, --output <dir>${RESET}    ${DIM}Output directory${RESET}`);
-  console.log(`  ${TEXT}-s, --skill <name>${RESET}    ${DIM}Skill name to pack (for URLs)${RESET}`);
-  console.log(`  ${TEXT}-f, --force${RESET}          ${DIM}Overwrite existing file${RESET}`);
-  console.log(`  ${TEXT}--no-validate${RESET}       ${DIM}Skip validation${RESET}`);
-  console.log(`  ${TEXT}--strict${RESET}            ${DIM}Treat unknown frontmatter keys as errors${RESET}`);
-  console.log(`  ${TEXT}-v, --verbose${RESET}       ${DIM}Show detailed output${RESET}`);
-  console.log(`  ${TEXT}-j, --json${RESET}           ${DIM}Output as JSON${RESET}`);
-  console.log(`  ${TEXT}--full-depth${RESET}         ${DIM}Search all subdirectories${RESET}`);
-  console.log(`  ${TEXT}-a, --all${RESET}                ${DIM}Pack all discovered skills${RESET}`);
+  console.log(pc.dim('Options:'));
+  console.log(`  ${pc.dim('-o, --output <dir>')}    ${pc.dim('Output directory')}`);
+  console.log(`  ${pc.dim('-s, --skill <name>')}    ${pc.dim('Skill name to pack (for URLs)')}`);
+  console.log(`  ${pc.dim('-f, --force')}          ${pc.dim('Overwrite existing file')}`);
+  console.log(`  ${pc.dim('--no-validate')}       ${pc.dim('Skip validation')}`);
+  console.log(`  ${pc.dim('--strict')}            ${pc.dim('Treat unknown frontmatter keys as errors')}`);
+  console.log(`  ${pc.dim('-v, --verbose')}       ${pc.dim('Show detailed output')}`);
+  console.log(`  ${pc.dim('-j, --json')}           ${pc.dim('Output as JSON')}`);
+  console.log(`  ${pc.dim('--full-depth')}         ${pc.dim('Search all subdirectories')}`);
+  console.log(`  ${pc.dim('-a, --all')}                ${pc.dim('Pack all discovered skills')}`);
   console.log();
 }
 
 function showHelp(): void {
   console.log(`
-${BOLD}Usage:${RESET} skill-packer <command> [options]
+${pc.bold('Usage:')} skill-packer <command> [options]
 
-${BOLD}Commands:${RESET}
+${pc.bold('Commands:')}
   pack <source>          Pack a skill directory to .skill file
   list [source]          List skills in a repository or directory
   check <path>           Validate a skill directory
 
-${BOLD}Pack Options:${RESET}
+${pc.bold('Pack Options:')}
   -o, --output <dir>     Output directory (default: current directory)
   -s, --skill <name>     Skill name to pack (required for remote URLs)
   -f, --force            Overwrite existing .skill file
@@ -98,42 +93,42 @@ ${BOLD}Pack Options:${RESET}
   -a, --all               Pack all discovered skills in the repository
   -v, --verbose          Show detailed output
 
-${BOLD}Check Options:${RESET}
+${pc.bold('Check Options:')}
   --strict               Treat unknown frontmatter keys as errors
 
-${BOLD}List Options:${RESET}
+${pc.bold('List Options:')}
   -j, --json             Output as JSON
   -v, --verbose          Show detailed information
   --full-depth           Search all subdirectories even with root SKILL.md
 
-${BOLD}Source Formats:${RESET}
+${pc.bold('Source Formats:')}
   Local path:            ./path/to/skill or /absolute/path
   GitHub shorthand:      owner/repo or owner/repo/path/to/skill
   GitHub URL:            https://github.com/owner/repo
   GitLab URL:            https://gitlab.com/owner/repo
   Git URL:               https://any-git-host.com/repo.git
 
-${BOLD}Examples:${RESET}
-  ${DIM}# Pack a local skill${RESET}
-  ${TEXT}npx skill-packer pack ./my-skill${RESET}
+${pc.bold('Examples:')}
+  ${pc.dim('# Pack a local skill')}
+  ${pc.dim('npx skill-packer pack ./my-skill')}
   
-  ${DIM}# Pack a skill from GitHub${RESET}
-  ${TEXT}npx skill-packer pack https://github.com/anthropics/skills --skill skill-creator${RESET}
+  ${pc.dim('# Pack a skill from GitHub')}
+  ${pc.dim('npx skill-packer pack https://github.com/anthropics/skills --skill skill-creator')}
   
-  ${DIM}# Pack and specify output directory${RESET}
-  ${TEXT}npx skill-packer pack ./my-skill -o ./dist${RESET}
+  ${pc.dim('# Pack and specify output directory')}
+  ${pc.dim('npx skill-packer pack ./my-skill -o ./dist')}
   
-  ${DIM}# List skills in a GitHub repository${RESET}
-  ${TEXT}npx skill-packer list vercel-labs/agent-skills${RESET}
+  ${pc.dim('# List skills in a GitHub repository')}
+  ${pc.dim('npx skill-packer list vercel-labs/agent-skills')}
   
-  ${DIM}# List skills from GitHub URL${RESET}
-  ${TEXT}npx skill-packer list https://github.com/anthropics/skills${RESET}
+  ${pc.dim('# List skills from GitHub URL')}
+  ${pc.dim('npx skill-packer list https://github.com/anthropics/skills')}
   
-  ${DIM}# List skills locally${RESET}
-  ${TEXT}npx skill-packer list ./skills${RESET}
+  ${pc.dim('# List skills locally')}
+  ${pc.dim('npx skill-packer list ./skills')}
   
-  ${DIM}# Check skill validity${RESET}
-  ${TEXT}npx skill-packer check ./my-skill${RESET}
+  ${pc.dim('# Check skill validity')}
+  ${pc.dim('npx skill-packer check ./my-skill')}
 `);
 }
 
@@ -492,9 +487,9 @@ export async function main(): Promise<void> {
 
   if (args.length === 0) {
     if (isPackAlias) {
-      console.log(`${BOLD}pack-skill${RESET} ${DIM}— pack skills into .skill files${RESET}\n`);
-      console.log(`Usage: ${TEXT}pack-skill <source> [options]${RESET}`);
-      console.log(`Run ${BOLD}pack-skill --help${RESET} for details.`);
+      console.log(`${pc.bold('pack-skill')} ${pc.dim('— pack skills into .skill files')}\n`);
+      console.log(`Usage: ${pc.dim('pack-skill <source> [options]')}`);
+      console.log(`Run ${pc.bold('pack-skill --help')} for details.`);
     } else {
       showBanner();
     }
@@ -546,7 +541,7 @@ export async function main(): Promise<void> {
       break;
     default:
       console.log(`Unknown command: ${command}`);
-      console.log(`Run ${BOLD}skill-packer --help${RESET} for usage.`);
+      console.log(`Run ${pc.bold('skill-packer --help')} for usage.`);
       process.exit(1);
   }
 }

@@ -235,22 +235,18 @@ export function parseSource(input: string): ParsedSource {
     ref: fragmentRef,
     skillFilter: fragmentSkillFilter,
   } = parseFragmentRef(input);
-  input = inputWithoutFragment;
 
   // Resolve source aliases before parsing
-  const alias = SOURCE_ALIASES[input];
-  if (alias) {
-    input = alias;
-  }
+  const source = SOURCE_ALIASES[inputWithoutFragment] ?? inputWithoutFragment;
 
   // Prefix shorthand: github:owner/repo
-  const githubPrefixMatch = input.match(/^github:(.+)$/);
+  const githubPrefixMatch = source.match(/^github:(.+)$/);
   if (githubPrefixMatch) {
     return parseSource(appendFragmentRef(githubPrefixMatch[1]!, fragmentRef, fragmentSkillFilter));
   }
 
   // Prefix shorthand: gitlab:owner/repo -> https://gitlab.com/owner/repo
-  const gitlabPrefixMatch = input.match(/^gitlab:(.+)$/);
+  const gitlabPrefixMatch = source.match(/^gitlab:(.+)$/);
   if (gitlabPrefixMatch) {
     return parseSource(
       appendFragmentRef(
@@ -262,15 +258,15 @@ export function parseSource(input: string): ParsedSource {
   }
 
   // Hosted raw files and archive/release assets must be downloaded directly
-  if (isHostedArtifactUrl(input)) {
+  if (isHostedArtifactUrl(source)) {
     return {
       type: 'download',
-      url: input,
+      url: source,
     };
   }
 
   // GitHub URLs
-  const githubTreeWithPathMatch = input.match(/github\.com\/([^/]+)\/([^/]+)\/tree\/([^/]+)\/(.+)/);
+  const githubTreeWithPathMatch = source.match(/github\.com\/([^/]+)\/([^/]+)\/tree\/([^/]+)\/(.+)/);
   if (githubTreeWithPathMatch) {
     const [, owner, repo, ref, subpath] = githubTreeWithPathMatch;
     return {
@@ -281,7 +277,7 @@ export function parseSource(input: string): ParsedSource {
     };
   }
 
-  const githubTreeMatch = input.match(/github\.com\/([^/]+)\/([^/]+)\/tree\/([^/]+)$/);
+  const githubTreeMatch = source.match(/github\.com\/([^/]+)\/([^/]+)\/tree\/([^/]+)$/);
   if (githubTreeMatch) {
     const [, owner, repo, ref] = githubTreeMatch;
     return {
@@ -291,7 +287,7 @@ export function parseSource(input: string): ParsedSource {
     };
   }
 
-  const githubRepoMatch = input.match(/github\.com\/([^/]+)\/([^/]+)/);
+  const githubRepoMatch = source.match(/github\.com\/([^/]+)\/([^/]+)/);
   if (githubRepoMatch) {
     const [, owner, repo] = githubRepoMatch;
     const cleanRepo = repo!.replace(/\.git$/, '');
@@ -303,7 +299,7 @@ export function parseSource(input: string): ParsedSource {
   }
 
   // GitLab URLs
-  const gitlabTreeWithPathMatch = input.match(
+  const gitlabTreeWithPathMatch = source.match(
     /^(https?):\/\/([^/]+)\/(.+?)\/-\/tree\/([^/]+)\/(.+)/
   );
   if (gitlabTreeWithPathMatch) {
@@ -318,7 +314,7 @@ export function parseSource(input: string): ParsedSource {
     }
   }
 
-  const gitlabTreeMatch = input.match(/^(https?):\/\/([^/]+)\/(.+?)\/-\/tree\/([^/]+)$/);
+  const gitlabTreeMatch = source.match(/^(https?):\/\/([^/]+)\/(.+?)\/-\/tree\/([^/]+)$/);
   if (gitlabTreeMatch) {
     const [, protocol, hostname, repoPath, ref] = gitlabTreeMatch;
     if (hostname !== 'github.com' && repoPath) {
@@ -330,7 +326,7 @@ export function parseSource(input: string): ParsedSource {
     }
   }
 
-  const gitlabRepoMatch = input.match(/gitlab\.com\/(.+?)(?:\.git)?\/?$/);
+  const gitlabRepoMatch = source.match(/gitlab\.com\/(.+?)(?:\.git)?\/?$/);
   if (gitlabRepoMatch) {
     const repoPath = gitlabRepoMatch[1]!;
     if (repoPath.includes('/')) {
@@ -346,8 +342,8 @@ export function parseSource(input: string): ParsedSource {
   const githubHost = getGitHubHost();
   const shorthandSourceType = githubHost === 'github.com' ? 'github' : 'git';
 
-  const atSkillMatch = input.match(/^([^/]+)\/([^/@]+)@(.+)$/);
-  if (atSkillMatch && !input.includes(':') && !input.startsWith('.') && !input.startsWith('/')) {
+  const atSkillMatch = source.match(/^([^/]+)\/([^/@]+)@(.+)$/);
+  if (atSkillMatch && !source.includes(':') && !source.startsWith('.') && !source.startsWith('/')) {
     const [, owner, repo, skillFilter] = atSkillMatch;
     return {
       type: shorthandSourceType,
@@ -357,8 +353,8 @@ export function parseSource(input: string): ParsedSource {
     };
   }
 
-  const shorthandMatch = input.match(/^([^/]+)\/([^/]+)(?:\/(.+))?$/);
-  if (shorthandMatch && !input.includes(':') && !input.startsWith('.') && !input.startsWith('/')) {
+  const shorthandMatch = source.match(/^([^/]+)\/([^/]+)(?:\/(.+))?$/);
+  if (shorthandMatch && !source.includes(':') && !source.startsWith('.') && !source.startsWith('/')) {
     const [, owner, repo, subpath] = shorthandMatch;
     return {
       type: shorthandSourceType,
@@ -370,17 +366,17 @@ export function parseSource(input: string): ParsedSource {
   }
 
   // Well-known URLs
-  if (isWellKnownUrl(input)) {
+  if (isWellKnownUrl(source)) {
     return {
       type: 'well-known',
-      url: input,
+      url: source,
     };
   }
 
   // Fallback: direct git URL
   return {
     type: 'git',
-    url: input,
+    url: source,
     ...(fragmentRef ? { ref: fragmentRef } : {}),
   };
 }
