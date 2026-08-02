@@ -6,34 +6,25 @@ import pc from 'picocolors';
 import type { PackOptions, PackResult } from './types.ts';
 import { validateSkillPath } from './validate.ts';
 import { success, error, warn, info, path, count, detail, highlight, indent, bullet, dimLabel } from './print.js';
+import { SKIP_DIRS, SKIP_FILES, SKIP_GLOB_REGEXPS } from './excludes.ts';
 
-
-const EXCLUDE_DIRS = new Set(['node_modules', '__pycache__', '.git', 'dist', 'build', 'evals']);
-const EXCLUDE_FILES = new Set(['.DS_Store', 'Thumbs.db']);
-const EXCLUDE_GLOBS = ['*.pyc', '*.pyo', '.env', '.env.local'];
-
-function globToRegex(pattern: string): RegExp {
-  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
-  return new RegExp('^' + escaped + '$');
-}
-
-const EXCLUDE_REGEXPS = EXCLUDE_GLOBS.map(globToRegex);
+const SKIP_DIR_SET = new Set(SKIP_DIRS);
 
 export function shouldExclude(relPath: string): boolean {
   const parts = relPath.split(/[/\\]/);
   
   for (const part of parts) {
-    if (EXCLUDE_DIRS.has(part)) {
+    if (SKIP_DIR_SET.has(part)) {
       return true;
     }
   }
   
   const fileName = parts[parts.length - 1]!;
-  if (EXCLUDE_FILES.has(fileName)) {
+  if (SKIP_FILES.has(fileName)) {
     return true;
   }
   
-  for (const regex of EXCLUDE_REGEXPS) {
+  for (const regex of SKIP_GLOB_REGEXPS) {
     if (regex.test(fileName)) {
       return true;
     }

@@ -5,8 +5,7 @@ import { sanitizeMetadata, stripTerminalEscapes } from './sanitize.ts';
 import type { Skill, DiscoverSkillsOptions } from './types.ts';
 import { getPluginSkillPaths, getPluginGroupings, isContainedIn } from './plugin-manifest.ts';
 import { warn } from './print.js';
-
-const SKIP_DIRS = ['node_modules', '.git', 'dist', 'build', '__pycache__'];
+import { SKIP_DIRS } from './excludes.ts';
 
 const AGENT_PROJECT_SKILL_DIRS = [
   '.agents/skills',

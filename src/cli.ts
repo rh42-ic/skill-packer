@@ -288,7 +288,7 @@ export async function runPack(args: string[]): Promise<void> {
       const failureCount = failures.length;
       const summary = failureCount > 0
         ? `${count(succeeded)} succeeded, ${pc.red(`${failureCount} failed`)}`
-        : `${count(succeeded)} succeeded, ${count(failureCount)} failed`;
+        : `${count(succeeded)} succeeded, 0 failed`;
       console.log(summary);
 
       if (failureCount > 0) {
@@ -439,7 +439,7 @@ export async function runCheck(args: string[]): Promise<void> {
     const arg = args[i];
     if (arg === '--strict') {
       strict = true;
-    } else if (!arg!.startsWith('-')) {
+    } else if (!arg?.startsWith('-')) {
       skillPath = arg;
     }
   }
