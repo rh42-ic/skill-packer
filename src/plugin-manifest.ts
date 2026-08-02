@@ -5,7 +5,7 @@ import { join, dirname, resolve, normalize, sep } from 'path';
  * Check if a path is contained within a base directory.
  * Prevents path traversal attacks via `..` segments or absolute paths.
  */
-function isContainedIn(targetPath: string, basePath: string): boolean {
+export function isContainedIn(targetPath: string, basePath: string): boolean {
   const normalizedBase = normalize(resolve(basePath));
   const normalizedTarget = normalize(resolve(targetPath));
   return normalizedTarget.startsWith(normalizedBase + sep) || normalizedTarget === normalizedBase;
@@ -121,7 +121,7 @@ export async function getPluginGroupings(basePath: string): Promise<Map<string, 
           for (const skillPath of plugin.skills) {
             if (!isValidRelativePath(skillPath)) continue;
 
-            const skillDir = join(pluginBase, skillPath);
+            const skillDir = dirname(join(pluginBase, skillPath));
             if (isContainedIn(skillDir, basePath)) {
               groupings.set(resolve(skillDir), plugin.name);
             }
@@ -140,7 +140,7 @@ export async function getPluginGroupings(basePath: string): Promise<Map<string, 
     if (manifest.name && manifest.skills && manifest.skills.length > 0) {
       for (const skillPath of manifest.skills) {
         if (!isValidRelativePath(skillPath)) continue;
-        const skillDir = join(basePath, skillPath);
+        const skillDir = dirname(join(basePath, skillPath));
         if (isContainedIn(skillDir, basePath)) {
           groupings.set(resolve(skillDir), manifest.name);
         }

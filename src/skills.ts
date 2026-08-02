@@ -1,9 +1,9 @@
 import { readdir, readFile, stat } from 'fs/promises';
-import { join, dirname, resolve, normalize, sep, basename } from 'path';
+import { join, dirname, resolve, basename } from 'path';
 import { parseFrontmatter } from './frontmatter.ts';
 import { sanitizeMetadata, stripTerminalEscapes } from './sanitize.ts';
 import type { Skill, DiscoverSkillsOptions } from './types.ts';
-import { getPluginSkillPaths, getPluginGroupings } from './plugin-manifest.ts';
+import { getPluginSkillPaths, getPluginGroupings, isContainedIn } from './plugin-manifest.ts';
 import { warn } from './print.js';
 
 const SKIP_DIRS = ['node_modules', '.git', 'dist', 'build', '__pycache__'];
@@ -137,10 +137,7 @@ async function findSkillDirs(dir: string, depth = 0, maxDepth = 5): Promise<stri
 }
 
 export function isSubpathSafe(basePath: string, subpath: string): boolean {
-  const normalizedBase = normalize(resolve(basePath));
-  const normalizedTarget = normalize(resolve(join(basePath, subpath)));
-
-  return normalizedTarget.startsWith(normalizedBase + sep) || normalizedTarget === normalizedBase;
+  return isContainedIn(join(basePath, subpath), basePath);
 }
 
 export async function discoverSkills(

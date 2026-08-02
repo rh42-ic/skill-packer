@@ -135,8 +135,8 @@ describe('getPluginGroupings', () => {
     writeJson(join(testDir, '.claude-plugin', 'marketplace.json'), {
       metadata: { pluginRoot: './plugins' },
       plugins: [
-        { name: 'plugin-a', source: './plugin-a', skills: ['./skills/skill-1'] },
-        { name: 'plugin-b', source: './plugin-b', skills: ['./skills/skill-2'] },
+        { name: 'plugin-a', source: './plugin-a', skills: ['./skills/skill-1/SKILL.md'] },
+        { name: 'plugin-b', source: './plugin-b', skills: ['./skills/skill-2/SKILL.md'] },
       ],
     });
 
@@ -149,7 +149,7 @@ describe('getPluginGroupings', () => {
   it('maps skill dirs to plugin names from plugin.json', async () => {
     writeJson(join(testDir, '.claude-plugin', 'plugin.json'), {
       name: 'single-plugin',
-      skills: ['./skills/only-skill'],
+      skills: ['./skills/only-skill/SKILL.md'],
     });
 
     const groupings = await getPluginGroupings(testDir);
@@ -344,7 +344,7 @@ describe('discoverSkills with plugin manifests', () => {
   it('should assign pluginName from plugin groupings', async () => {
     writeJson(join(testDir, '.claude-plugin', 'marketplace.json'), {
       metadata: { pluginRoot: './plugins' },
-      plugins: [{ name: 'grouped-plugin', source: './grouped-plugin', skills: ['./skills/grouped-skill'] }],
+      plugins: [{ name: 'grouped-plugin', source: './grouped-plugin', skills: ['./skills/grouped-skill/SKILL.md'] }],
     });
     writeSkill(join(testDir, 'plugins/grouped-plugin/skills/grouped-skill'), 'grouped-skill');
 
