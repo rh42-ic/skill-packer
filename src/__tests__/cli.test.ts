@@ -35,7 +35,7 @@ import { packSkill } from '../pack.ts';
 import { listSkills } from '../list.ts';
 import { validateSkillPath } from '../validate.ts';
 import { discoverSkills } from '../skills.ts';
-import { cloneRepo } from '../git.ts';
+import { cloneRepo, cleanupTempDir } from '../git.ts';
 import { parseSource } from '../source-parser.ts';
 import * as readline from 'readline';
 import { runPack, runList, runCheck, main } from '../cli.ts';
@@ -46,6 +46,7 @@ const mockValidateSkillPath = vi.mocked(validateSkillPath);
 const mockDiscoverSkills = vi.mocked(discoverSkills);
 const mockParseSource = vi.mocked(parseSource);
 const mockCloneRepo = vi.mocked(cloneRepo);
+const mockCleanupTempDir = vi.mocked(cleanupTempDir);
 const mockCreateInterface = vi.mocked(readline.createInterface);
 
 // Helper to capture exit
@@ -100,9 +101,9 @@ describe('CLI', () => {
       process.argv = oldArgv;
     });
 
-    it('shows help for --help', async () => {
+    it.each(['--help', '-h'])('shows help for %s', async (flag) => {
       const oldArgv = process.argv;
-      process.argv = ['node', 'skill-packer', '--help'];
+      process.argv = ['node', 'skill-packer', flag];
       const logSpy = vi.spyOn(console, 'log');
 
       await main();
@@ -110,19 +111,6 @@ describe('CLI', () => {
       const output = logSpy.mock.calls.map(c => c.join(' ')).join('\n');
       expect(output).toContain('Usage:');
       expect(output).toContain('skill-packer <command>');
-
-      process.argv = oldArgv;
-    });
-
-    it('shows help for -h', async () => {
-      const oldArgv = process.argv;
-      process.argv = ['node', 'skill-packer', '-h'];
-      const logSpy = vi.spyOn(console, 'log');
-
-      await main();
-
-      const output = logSpy.mock.calls.map(c => c.join(' ')).join('\n');
-      expect(output).toContain('Usage:');
 
       process.argv = oldArgv;
     });
@@ -227,7 +215,9 @@ describe('CLI', () => {
 
       await main();
 
-      expect(mockListSkills).toHaveBeenCalled();
+      expect(mockListSkills).toHaveBeenCalledWith(
+        expect.objectContaining({ source: undefined, json: false, verbose: false, fullDepth: false })
+      );
 
       process.argv = oldArgv;
     });
@@ -392,18 +382,8 @@ describe('CLI', () => {
       });
     });
 
-    it('clones repo and calls discoverSkills with fullDepth: true', async () => {
-      await runPack(['user/repo', '--all']);
-
-      expect(mockCloneRepo).toHaveBeenCalled();
-      expect(mockDiscoverSkills).toHaveBeenCalledWith(
-        '/tmp/cloned-repo', undefined, { fullDepth: true }
-      );
-      expect(mockPackSkill).toHaveBeenCalledTimes(2);
-    });
-
-    it('accepts -a as shorthand for --all', async () => {
-      await runPack(['user/repo', '-a']);
+    it.each(['--all', '-a'])('batch-packs all skills with %s flag', async (flag) => {
+      await runPack(['user/repo', flag]);
 
       expect(mockCloneRepo).toHaveBeenCalled();
       expect(mockDiscoverSkills).toHaveBeenCalledWith(
@@ -449,42 +429,18 @@ describe('CLI', () => {
       expect(output).toContain('/output/skill-b.skill');
     });
 
-    it('passes --output to every packSkill call', async () => {
-      await runPack(['user/repo', '--all', '--output', '/custom']);
+    it.each([
+      { args: ['--output', '/custom'], expected: { outputPath: '/custom' } },
+      { args: ['--force'], expected: { force: true } },
+      { args: ['--no-validate'], expected: { validate: false } },
+      { args: ['--strict'], expected: { strict: true } },
+      { args: ['--force', '--no-validate'], expected: { force: true, validate: false } },
+    ])('forwards $args to every packSkill call in --all mode', async ({ args, expected }) => {
+      await runPack(['user/repo', '--all', ...args]);
 
       expect(mockPackSkill).toHaveBeenCalledTimes(2);
-      expect(mockPackSkill).toHaveBeenNthCalledWith(1, expect.objectContaining({
-        outputPath: '/custom',
-      }));
-      expect(mockPackSkill).toHaveBeenNthCalledWith(2, expect.objectContaining({
-        outputPath: '/custom',
-      }));
-    });
-
-    it('passes --force and --no-validate to every packSkill call', async () => {
-      await runPack(['user/repo', '--all', '--force', '--no-validate']);
-
-      expect(mockPackSkill).toHaveBeenCalledTimes(2);
-      expect(mockPackSkill).toHaveBeenNthCalledWith(1, expect.objectContaining({
-        force: true,
-        validate: false,
-      }));
-      expect(mockPackSkill).toHaveBeenNthCalledWith(2, expect.objectContaining({
-        force: true,
-        validate: false,
-      }));
-    });
-
-    it('passes --strict to every packSkill call', async () => {
-      await runPack(['user/repo', '--all', '--strict']);
-
-      expect(mockPackSkill).toHaveBeenCalledTimes(2);
-      expect(mockPackSkill).toHaveBeenNthCalledWith(1, expect.objectContaining({
-        strict: true,
-      }));
-      expect(mockPackSkill).toHaveBeenNthCalledWith(2, expect.objectContaining({
-        strict: true,
-      }));
+      expect(mockPackSkill).toHaveBeenNthCalledWith(1, expect.objectContaining(expected));
+      expect(mockPackSkill).toHaveBeenNthCalledWith(2, expect.objectContaining(expected));
     });
 
     it('exits with code 1 when no skills are discovered', async () => {
@@ -615,6 +571,7 @@ describe('CLI', () => {
         '/tmp/cloned-repo', undefined, { fullDepth: true }
       );
       expect(mockPackSkill).toHaveBeenCalledTimes(1);
+      expect(mockCreateInterface).not.toHaveBeenCalled();
       expect(mockPackSkill).toHaveBeenCalledWith(expect.objectContaining({
         skillPath: '/tmp/repo/skills/only-skill',
       }));
@@ -654,7 +611,7 @@ describe('CLI', () => {
       expect(output).toContain('skill-b');
     });
 
-    it('lists skills, prompts user, and packs all on "y" in TTY', async () => {
+    it.each(['y', 'Y', 'yes'])('lists skills, prompts user, and packs all on "%s"', async (answer) => {
       const originalTTY = process.stdin.isTTY;
       Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
 
@@ -665,7 +622,7 @@ describe('CLI', () => {
 
       mockCreateInterface.mockReturnValue({
         question: vi.fn((_query: string, callback: (answer: string) => void) => {
-          callback('y');
+          callback(answer);
           return { close: vi.fn() } as any;
         }),
         close: vi.fn(),
@@ -715,34 +672,72 @@ describe('CLI', () => {
       expect(output).toContain('Skills found');
       expect(output).toContain('Cancelled');
       expect(mockPackSkill).not.toHaveBeenCalled();
+      expect(mockCleanupTempDir).toHaveBeenCalled();
     });
 
-    it('lists skills, prompts user, and packs all on "yes" in TTY', async () => {
-      const originalTTY = process.stdin.isTTY;
-      Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
-
+    it('cancels on blank input (Enter) in TTY', async () => {
       mockDiscoverSkills.mockResolvedValue([
         { name: 'skill-a', description: 'A', path: '/tmp/a' },
         { name: 'skill-b', description: 'B', path: '/tmp/b' },
       ]);
+      const mockQuestion = vi.fn((_query: string, callback: (answer: string) => void) => {
+        callback('');
+        return { close: vi.fn() } as any;
+      });
+      mockCreateInterface.mockReturnValue({ question: mockQuestion, close: vi.fn() } as any);
+      const originalTTY = process.stdin.isTTY;
+      Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
+      const logSpy = vi.spyOn(console, 'log');
+      try {
+        await assertExits(() => runPack(['user/repo']), 0);
+      } finally {
+        Object.defineProperty(process.stdin, 'isTTY', { value: originalTTY, configurable: true });
+      }
+      const output = logSpy.mock.calls.map(c => c.join(' ')).join('\n');
+      expect(output).toContain('Cancelled');
+      expect(mockPackSkill).not.toHaveBeenCalled();
+    });
 
-      mockCreateInterface.mockReturnValue({
-        question: vi.fn((_query: string, callback: (answer: string) => void) => {
-          callback('yes');
-          return { close: vi.fn() } as any;
-        }),
-        close: vi.fn(),
-      } as any);
-
+    it('trims whitespace from " y " and confirms', async () => {
+      mockDiscoverSkills.mockResolvedValue([
+        { name: 'skill-a', description: 'A', path: '/tmp/a' },
+        { name: 'skill-b', description: 'B', path: '/tmp/b' },
+      ]);
+      const mockQuestion = vi.fn((_query: string, callback: (answer: string) => void) => {
+        callback(' y ');
+        return { close: vi.fn() } as any;
+      });
+      mockCreateInterface.mockReturnValue({ question: mockQuestion, close: vi.fn() } as any);
+      const originalTTY = process.stdin.isTTY;
+      Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
       try {
         await runPack(['user/repo']);
       } finally {
         Object.defineProperty(process.stdin, 'isTTY', { value: originalTTY, configurable: true });
       }
-
       expect(mockPackSkill).toHaveBeenCalledTimes(2);
       expect(mockPackSkill).toHaveBeenCalledWith(expect.objectContaining({ skillPath: '/tmp/a' }));
       expect(mockPackSkill).toHaveBeenCalledWith(expect.objectContaining({ skillPath: '/tmp/b' }));
+    });
+
+    it('cancels on non-matching input like "nope"', async () => {
+      mockDiscoverSkills.mockResolvedValue([
+        { name: 'skill-a', description: 'A', path: '/tmp/a' },
+        { name: 'skill-b', description: 'B', path: '/tmp/b' },
+      ]);
+      const mockQuestion = vi.fn((_query: string, callback: (answer: string) => void) => {
+        callback('nope');
+        return { close: vi.fn() } as any;
+      });
+      mockCreateInterface.mockReturnValue({ question: mockQuestion, close: vi.fn() } as any);
+      const originalTTY = process.stdin.isTTY;
+      Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
+      try {
+        await assertExits(() => runPack(['user/repo']), 0);
+      } finally {
+        Object.defineProperty(process.stdin, 'isTTY', { value: originalTTY, configurable: true });
+      }
+      expect(mockPackSkill).not.toHaveBeenCalled();
     });
   });
 });
