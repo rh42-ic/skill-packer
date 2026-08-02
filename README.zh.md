@@ -83,14 +83,6 @@ npx skill-packer check ./my-skill --strict
 
 **严格模式（`--strict`）：** 所有格式规则均按较低阈值视为错误。未知 frontmatter 字段同样视为错误（默认仅警告）。
 
-## 开发
-
-```bash
-npm install && npm run build   # 安装 + 构建
-npm test                       # 运行测试
-npm run type-check             # 类型检查
-```
-
 ## 许可证
 
 MIT — 包含来自 [vercel-labs/skills](https://github.com/vercel-labs/skills) 的代码。

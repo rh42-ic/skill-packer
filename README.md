@@ -83,14 +83,6 @@ npx skill-packer check ./my-skill --strict
 
 **Strict mode (`--strict`):** all format rules are errors at their lower thresholds. Unknown frontmatter keys are also errors (vs warnings by default).
 
-## Development
-
-```bash
-npm install && npm run build   # setup + build
-npm test                       # run tests
-npm run type-check             # type checking
-```
-
 ## License
 
 MIT — incorporates code from [vercel-labs/skills](https://github.com/vercel-labs/skills).
