@@ -12,6 +12,30 @@ const CLONE_TIMEOUT_MS = (() => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_CLONE_TIMEOUT_MS;
 })();
 
+/**
+ * Check the size of a remote GitHub repository before cloning.
+ * Uses the GitHub REST API to get repo size in KB, returns bytes.
+ * Returns 0 if the size cannot be determined (non-GitHub source, API error, etc.).
+ */
+export async function getRepoSizeBytes(ownerRepo: string): Promise<number> {
+  const parts = ownerRepo.split('/');
+  if (parts.length !== 2) return 0;
+  const [owner, repo] = parts;
+  try {
+    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+      headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (response.ok) {
+      const data = (await response.json()) as { size?: number };
+      if (typeof data.size === 'number') {
+        return data.size * 1024; // GitHub API returns KB, convert to bytes
+      }
+    }
+  } catch { /* fall through */ }
+  return 0;
+}
+
 export class GitCloneError extends Error {
   readonly url: string;
   readonly isTimeout: boolean;

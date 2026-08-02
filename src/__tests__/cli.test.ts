@@ -22,6 +22,7 @@ vi.mock('../skills.ts', () => ({
 vi.mock('../git.ts', () => ({
   cloneRepo: vi.fn(),
   cleanupTempDir: vi.fn(),
+  getRepoSizeBytes: vi.fn(() => 0),
 }));
 
 vi.mock('../source-parser.ts', () => ({

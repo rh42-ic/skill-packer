@@ -5,6 +5,7 @@ import type { Skill } from '../types.ts';
 vi.mock('../git.ts', () => ({
   cloneRepo: vi.fn(),
   cleanupTempDir: vi.fn(),
+  getRepoSizeBytes: vi.fn(() => 0),
   GitCloneError: class extends Error {
     constructor(msg: string) {
       super(msg);
@@ -23,15 +24,24 @@ vi.mock('../source-parser.ts', () => ({
   getOwnerRepo: vi.fn(() => null),
 }));
 
+vi.mock('../github-host.ts', () => ({
+  isGitHubHost: vi.fn(() => false),
+  getGitHubHost: vi.fn(() => 'github.com'),
+}));
+
 import { listSkills } from '../list.ts';
-import { cloneRepo, cleanupTempDir, GitCloneError } from '../git.ts';
+import { cloneRepo, cleanupTempDir, GitCloneError, getRepoSizeBytes } from '../git.ts';
 import { discoverSkills, getSkillDisplayName } from '../skills.ts';
-import { parseSource } from '../source-parser.ts';
+import { parseSource, getOwnerRepo } from '../source-parser.ts';
+import { isGitHubHost } from '../github-host.ts';
 
 const mockCloneRepo = vi.mocked(cloneRepo);
 const mockCleanupTempDir = vi.mocked(cleanupTempDir);
 const mockDiscoverSkills = vi.mocked(discoverSkills);
 const mockParseSource = vi.mocked(parseSource);
+const mockGetOwnerRepo = vi.mocked(getOwnerRepo);
+const mockIsGitHubHost = vi.mocked(isGitHubHost);
+const mockGetRepoSizeBytes = vi.mocked(getRepoSizeBytes);
 
 describe('listSkills', () => {
   beforeEach(() => {
@@ -39,6 +49,11 @@ describe('listSkills', () => {
     // Suppress console output during tests
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // Reset mock implementations to deterministic defaults
+    mockGetOwnerRepo.mockReturnValue(null);
+    mockIsGitHubHost.mockReturnValue(false);
+    mockGetRepoSizeBytes.mockResolvedValue(0);
   });
 
   afterEach(() => {
@@ -165,5 +180,81 @@ describe('listSkills', () => {
     await listSkills({ source: './' });
 
     expect(mockParseSource).not.toHaveBeenCalled();
+  });
+
+  it('repo-size pre-check: rejects when repo bytes exceed 100mb limit', async () => {
+    mockParseSource.mockReturnValue({
+      type: 'github',
+      url: 'https://github.com/user/repo.git',
+    });
+    mockGetOwnerRepo.mockReturnValue('user/repo');
+    mockIsGitHubHost.mockReturnValue(true);
+    mockGetRepoSizeBytes.mockResolvedValue(101 * 1024 * 1024);
+
+    await expect(listSkills({ source: 'user/repo' })).rejects.toThrow(/too large/);
+    expect(mockCloneRepo).not.toHaveBeenCalled();
+  });
+
+  it('repo-size pre-check: clones when repo bytes within limit', async () => {
+    mockParseSource.mockReturnValue({
+      type: 'github',
+      url: 'https://github.com/user/repo.git',
+    });
+    mockGetOwnerRepo.mockReturnValue('user/repo');
+    mockIsGitHubHost.mockReturnValue(true);
+    mockGetRepoSizeBytes.mockResolvedValue(50 * 1024 * 1024);
+    mockCloneRepo.mockResolvedValue('/tmp/cloned-repo');
+    mockDiscoverSkills.mockResolvedValue([]);
+
+    await listSkills({ source: 'user/repo' });
+
+    expect(mockCloneRepo).toHaveBeenCalledWith('https://github.com/user/repo.git', undefined);
+  });
+
+  it('repo-size pre-check: clones when size is 0 (unknown/empty)', async () => {
+    mockParseSource.mockReturnValue({
+      type: 'github',
+      url: 'https://github.com/user/repo.git',
+    });
+    mockGetOwnerRepo.mockReturnValue('user/repo');
+    mockIsGitHubHost.mockReturnValue(true);
+    mockGetRepoSizeBytes.mockResolvedValue(0);
+    mockCloneRepo.mockResolvedValue('/tmp/cloned-repo');
+    mockDiscoverSkills.mockResolvedValue([]);
+
+    await listSkills({ source: 'user/repo' });
+
+    expect(mockCloneRepo).toHaveBeenCalledWith('https://github.com/user/repo.git', undefined);
+  });
+
+  it('repo-size pre-check: warns and clones for non-GitHub remote', async () => {
+    mockParseSource.mockReturnValue({
+      type: 'github',
+      url: 'https://gitlab.com/user/repo.git',
+    });
+    mockGetOwnerRepo.mockReturnValue('user/repo');
+    mockIsGitHubHost.mockReturnValue(false);
+    mockCloneRepo.mockResolvedValue('/tmp/cloned-repo');
+    mockDiscoverSkills.mockResolvedValue([]);
+
+    await listSkills({ source: 'user/repo' });
+
+    expect(mockGetRepoSizeBytes).not.toHaveBeenCalled();
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Cannot pre-check repository size'));
+    expect(mockCloneRepo).toHaveBeenCalledWith('https://gitlab.com/user/repo.git', undefined);
+  });
+
+  it('repo-size pre-check: skips for local source', async () => {
+    mockParseSource.mockReturnValue({
+      type: 'local',
+      url: '/my/local/path',
+      localPath: '/my/local/path',
+    });
+    mockDiscoverSkills.mockResolvedValue([]);
+
+    await listSkills({ source: '/my/local/path' });
+
+    expect(mockGetRepoSizeBytes).not.toHaveBeenCalled();
+    expect(mockCloneRepo).not.toHaveBeenCalled();
   });
 });

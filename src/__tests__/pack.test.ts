@@ -350,9 +350,9 @@ This is a test skill.`
           skillPath: skillDir,
           outputPath: tmpDir,
           symlinks: 'all',
-          maxSize: 50, // very small limit — symlink target alone pushes it over
+          maxSkillSize: 50, // very small limit — symlink target alone pushes it over
         })
-      ).rejects.toThrow('exceeds maximum size');
+      ).rejects.toThrow('exceeds maximum skill size');
     });
 
     it('rejects when total uncompressed size exceeds maxSize', async () => {
@@ -361,9 +361,9 @@ This is a test skill.`
         packSkill({
           skillPath: skillDir,
           outputPath: tmpDir,
-          maxSize: 10, // impossibly small
+          maxSkillSize: 10, // impossibly small
         })
-      ).rejects.toThrow('exceeds maximum size');
+      ).rejects.toThrow('exceeds maximum skill size');
     });
 
     it('detects symlink loops and rejects', async () => {

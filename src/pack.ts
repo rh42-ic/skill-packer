@@ -268,10 +268,10 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
           } else {
             const content = await readFile(resolved.targetPath);
             totalUncompressedSize += content.length;
-            if (options.maxSize && totalUncompressedSize > options.maxSize) {
+            if (options.maxSkillSize && totalUncompressedSize > options.maxSkillSize) {
               throw new Error(
-                `Skill exceeds maximum size: ${formatBytes(totalUncompressedSize)} ` +
-                `(limit: ${formatBytes(options.maxSize)})`
+                `Skill exceeds maximum skill size: ${formatBytes(totalUncompressedSize)} ` +
+                `(limit: ${formatBytes(options.maxSkillSize)})`
               );
             }
             const zipEntryName = `${skillName}/${relativePath}`;
@@ -297,10 +297,10 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
           const fileStat = await stat(fullEntryPath);
           const content = await readFile(fullEntryPath);
           totalUncompressedSize += content.length;
-          if (options.maxSize && totalUncompressedSize > options.maxSize) {
+          if (options.maxSkillSize && totalUncompressedSize > options.maxSkillSize) {
             throw new Error(
-              `Skill exceeds maximum size: ${formatBytes(totalUncompressedSize)} ` +
-              `(limit: ${formatBytes(options.maxSize)})`
+              `Skill exceeds maximum skill size: ${formatBytes(totalUncompressedSize)} ` +
+              `(limit: ${formatBytes(options.maxSkillSize)})`
             );
           }
           const zipEntryName = `${skillName}/${relativePath}`;

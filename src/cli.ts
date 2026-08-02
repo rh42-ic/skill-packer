@@ -12,7 +12,8 @@ import { packSkill, formatBytes } from './pack.ts';
 import { parseSize } from './size-utils.js';
 import { validateSkillPath } from './validate.ts';
 import { discoverSkills, filterSkills } from './skills.ts';
-import { cloneRepo, cleanupTempDir } from './git.ts';
+import { cloneRepo, cleanupTempDir, getRepoSizeBytes } from './git.ts';
+import { isGitHubHost } from './github-host.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -73,6 +74,8 @@ function showBanner(): void {
   console.log(`  ${pc.dim('-v, --verbose')}       ${pc.dim('Show detailed output')}`);
   console.log(`  ${pc.dim('--full-depth')}         ${pc.dim('Search all subdirectories')}`);
   console.log(`  ${pc.dim('-a, --all')}                ${pc.dim('Pack all discovered skills')}`);
+  console.log(`  ${pc.dim('--max-skill-size <size>')}  ${pc.dim('Maximum uncompressed skill size (default: 50mb, e.g. 10mb, 1.5g)')}`);
+  console.log(`  ${pc.dim('--max-repo-size <size>')}   ${pc.dim('Maximum repository size before cloning (default: 100mb)')}`);
   console.log(`  ${pc.dim('-q, --quiet')}          ${pc.dim('Minimal output (paths only)')}`);
   console.log();
 }
@@ -93,7 +96,8 @@ ${pc.bold('Pack Options:')}
   --no-validate         Skip validation before packing
   --strict               Treat unknown frontmatter keys as errors
   --drop-symlinks        Drop all symlinks instead of resolving internal ones
-  --max-size <size>      Maximum total uncompressed skill size (default: 50mb, e.g. 10mb, 1.5g)
+  --max-skill-size <size>  Maximum uncompressed skill size (default: 50mb, e.g. 10mb, 1.5g)
+  --max-repo-size <size>   Maximum repository size before cloning (default: 100mb)
   --allow-external-symlinks  Allow symlinks pointing outside the skill (with size limits)
   -a, --all               Pack all discovered skills in the repository
   -v, --verbose          Show detailed output
@@ -169,7 +173,8 @@ export async function runPack(args: string[]): Promise<void> {
   let quiet = false;
   let symlinks: 'drop' | 'internal' | 'all' = 'internal';
   let allowExternalSymlinks = false;
-  let maxSize: number | undefined;
+  let maxSkillSize: number | undefined;
+  let maxRepoSize: number | undefined;
 
   for (let i = 0; i < restArgs.length; i++) {
     const arg = restArgs[i];
@@ -203,16 +208,28 @@ export async function runPack(args: string[]): Promise<void> {
       symlinks = 'drop';
     } else if (arg === '--allow-external-symlinks') {
       allowExternalSymlinks = true;
-    } else if (arg === '--max-size') {
+    } else if (arg === '--max-skill-size') {
       const val = restArgs[++i];
       if (!val) {
-        error('--max-size requires a value (e.g. 10mb, 500k, 1048576)');
+        error('--max-skill-size requires a value (e.g. 10mb, 500k, 1048576)');
         process.exit(1);
       }
       try {
-        maxSize = parseSize(val);
+        maxSkillSize = parseSize(val);
       } catch (e) {
-        error(e instanceof Error ? e.message : `Invalid --max-size: ${val}`);
+        error(e instanceof Error ? e.message : `Invalid --max-skill-size: ${val}`);
+        process.exit(1);
+      }
+    } else if (arg === '--max-repo-size') {
+      const val = restArgs[++i];
+      if (!val) {
+        error('--max-repo-size requires a value (e.g. 100mb, 1g)');
+        process.exit(1);
+      }
+      try {
+        maxRepoSize = parseSize(val);
+      } catch (e) {
+        error(e instanceof Error ? e.message : `Invalid --max-repo-size: ${val}`);
         process.exit(1);
       }
     }
@@ -229,8 +246,11 @@ export async function runPack(args: string[]): Promise<void> {
     symlinks = 'all';
   }
 
-  if (maxSize === undefined) {
-    maxSize = parseSize('50mb');
+  if (maxSkillSize === undefined) {
+    maxSkillSize = parseSize('50mb');
+  }
+  if (maxRepoSize === undefined) {
+    maxRepoSize = parseSize('100mb');
   }
 
   let tempDir: string | null = null;
@@ -244,6 +264,27 @@ export async function runPack(args: string[]): Promise<void> {
     } else {
       const displayName = getOwnerRepo(parsed) || parsed.url;
       info(`Cloning ${displayName}...`);
+
+      // Pre-check repo size for GitHub repos before cloning
+      const ownerRepo = getOwnerRepo(parsed);
+      let isGitHub = false;
+      try {
+        isGitHub = isGitHubHost(new URL(parsed.url).hostname);
+      } catch {
+        isGitHub = false;
+      }
+      if (ownerRepo && isGitHub) {
+        const repoBytes = await getRepoSizeBytes(ownerRepo);
+        if (repoBytes > 0 && repoBytes > maxRepoSize!) {
+          throw new Error(
+            `Repository is too large: ${formatBytes(repoBytes)} (max: ${formatBytes(maxRepoSize!)})`
+          );
+        }
+      } else {
+        // Non-GitHub remote source — warn that size can't be pre-checked
+        warn(`Cannot pre-check repository size for ${parsed.url}. Proceeding with clone.`);
+      }
+
       tempDir = await cloneRepo(parsed.url, parsed.ref);
       skillPath = tempDir;
 
@@ -323,7 +364,7 @@ export async function runPack(args: string[]): Promise<void> {
             validate,
             verbose,
             strict,
-            maxSize,
+            maxSkillSize,
             onConflict: 'skip',
           });
 
@@ -385,7 +426,7 @@ export async function runPack(args: string[]): Promise<void> {
           validate,
           verbose,
           strict,
-          maxSize,
+          maxSkillSize,
           symlinks,
           resolveRoot: tempDir ?? undefined,
         });
@@ -411,7 +452,7 @@ export async function runPack(args: string[]): Promise<void> {
             validate,
             verbose,
             strict,
-            maxSize,
+            maxSkillSize,
             onConflict: 'skip',
             symlinks,
             resolveRoot: tempDir ?? undefined,
@@ -478,7 +519,7 @@ export async function runPack(args: string[]): Promise<void> {
             validate,
             verbose,
             strict,
-            maxSize,
+            maxSkillSize,
             onConflict: 'skip',
           });
 
@@ -507,7 +548,7 @@ export async function runPack(args: string[]): Promise<void> {
       validate,
       verbose,
       strict,
-      maxSize,
+      maxSkillSize,
     });
 
     if (isQuiet()) {

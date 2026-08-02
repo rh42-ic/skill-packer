@@ -12,7 +12,7 @@ vi.mock('simple-git', () => ({
   simpleGit: simpleGitMock,
 }));
 
-import { GitCloneError, cloneRepo } from '../git.ts';
+import { GitCloneError, cloneRepo, getRepoSizeBytes } from '../git.ts';
 
 function createGitClientMock(clone: ReturnType<typeof vi.fn>) {
   const client = {
@@ -212,5 +212,87 @@ describe('cloneRepo transport allowlist', () => {
       'Unsupported Git transport: ext'
     );
     await expect(cloneRepo('fd::3')).rejects.toThrow(/transport .* not allowed/i);
+  });
+});
+
+describe('getRepoSizeBytes', () => {
+  let originalFetch: typeof global.fetch;
+
+  beforeEach(() => {
+    originalFetch = global.fetch;
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('returns bytes for valid GitHub API response', async () => {
+    const mockFetch = vi.fn();
+    mockFetch.mockResolvedValue({ ok: true, json: async () => ({ size: 108 }) });
+    global.fetch = mockFetch as any;
+
+    const result = await getRepoSizeBytes('user/repo');
+
+    expect(result).toBe(108 * 1024);
+  });
+
+  it('returns 0 when API returns non-200', async () => {
+    const mockFetch = vi.fn();
+    mockFetch.mockResolvedValue({ ok: false, status: 404 });
+    global.fetch = mockFetch as any;
+
+    const result = await getRepoSizeBytes('user/repo');
+
+    expect(result).toBe(0);
+  });
+
+  it('returns 0 when size field is missing', async () => {
+    const mockFetch = vi.fn();
+    mockFetch.mockResolvedValue({ ok: true, json: async () => ({}) });
+    global.fetch = mockFetch as any;
+
+    const result = await getRepoSizeBytes('user/repo');
+
+    expect(result).toBe(0);
+  });
+
+  it('returns 0 when size field is 0 (empty/new repo)', async () => {
+    const mockFetch = vi.fn();
+    mockFetch.mockResolvedValue({ ok: true, json: async () => ({ size: 0 }) });
+    global.fetch = mockFetch as any;
+
+    const result = await getRepoSizeBytes('user/repo');
+
+    expect(result).toBe(0);
+  });
+
+  it('returns 0 when fetch throws (network error)', async () => {
+    const mockFetch = vi.fn();
+    mockFetch.mockRejectedValue(new Error('network error'));
+    global.fetch = mockFetch as any;
+
+    const result = await getRepoSizeBytes('user/repo');
+
+    expect(result).toBe(0);
+  });
+
+  it('returns 0 for invalid ownerRepo format', async () => {
+    const mockFetch = vi.fn();
+    global.fetch = mockFetch as any;
+
+    const result = await getRepoSizeBytes('just-a-string');
+
+    expect(result).toBe(0);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('returns 0 when API returns 403 (rate limit)', async () => {
+    const mockFetch = vi.fn();
+    mockFetch.mockResolvedValue({ ok: false, status: 403 });
+    global.fetch = mockFetch as any;
+
+    const result = await getRepoSizeBytes('user/repo');
+
+    expect(result).toBe(0);
   });
 });

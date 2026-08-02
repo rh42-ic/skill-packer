@@ -45,9 +45,9 @@ export interface PackOptions {
   /** Root directory for determining whether a symlink target is "internal".
    * Defaults to skillPath. Set to the cloned repo root when packing from git sources. */
   resolveRoot?: string;
-  /** Maximum total uncompressed size in bytes for the skill (all files including resolved symlinks).
+  /** Maximum total uncompressed size in bytes for a single skill (all files including resolved symlinks).
    * Exceeding this limit causes packing to fail. */
-  maxSize?: number;
+  maxSkillSize?: number;
 }
 
 export interface PackResult {

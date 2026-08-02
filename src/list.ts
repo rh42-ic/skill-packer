@@ -2,7 +2,9 @@ import { join } from 'path';
 import type { ListOptions, Skill } from './types.ts';
 import { parseSource, getOwnerRepo } from './source-parser.ts';
 import { discoverSkills, getSkillDisplayName } from './skills.ts';
-import { cloneRepo, cleanupTempDir, GitCloneError } from './git.ts';
+import { cloneRepo, cleanupTempDir, GitCloneError, getRepoSizeBytes } from './git.ts';
+import { isGitHubHost } from './github-host.ts';
+import { parseSize, formatBytes } from './size-utils.js';
 import { error, warn, info, path, count, detail, isQuiet } from './print.js';
 
 export async function listSkills(options: ListOptions): Promise<Skill[]> {
@@ -25,7 +27,28 @@ export async function listSkills(options: ListOptions): Promise<Skill[]> {
       if (!isQuiet()) {
         info(`Fetching from ${displayName}...`);
       }
-      
+
+      // Pre-check repo size for GitHub repos before cloning
+      const ownerRepo = getOwnerRepo(parsed);
+      let isGitHub = false;
+      try {
+        isGitHub = isGitHubHost(new URL(parsed.url).hostname);
+      } catch {
+        isGitHub = false;
+      }
+      if (ownerRepo && isGitHub) {
+        const maxRepoSize = parseSize('100mb');
+        const repoBytes = await getRepoSizeBytes(ownerRepo);
+        if (repoBytes > 0 && repoBytes > maxRepoSize) {
+          throw new Error(
+            `Repository is too large: ${formatBytes(repoBytes)} (max: ${formatBytes(maxRepoSize)})`
+          );
+        }
+      } else {
+        // Non-GitHub remote source — warn that size can't be pre-checked
+        warn(`Cannot pre-check repository size for ${parsed.url}. Proceeding with clone.`);
+      }
+
       try {
         tempDir = await cloneRepo(parsed.url, parsed.ref);
         searchPath = tempDir;

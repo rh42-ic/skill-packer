@@ -32,7 +32,8 @@ npx skill-packer pack anthropics/skills                    # interactive: list +
 | `--no-validate` | Skip validation |
 | `--strict` | Strict validation: all format rules are errors (see below) |
 | `--drop-symlinks` | Drop all symlinks instead of resolving internal ones |
-| `--max-size <size>` | Maximum total uncompressed skill size (default: 50mb). Packing fails if exceeded. |
+| `--max-skill-size <size>` | Maximum total uncompressed skill size (default: 50mb). Packing fails if exceeded. |
+| `--max-repo-size <size>` | Maximum repository size before cloning (default: 100mb). Packing is aborted if the repo exceeds this. |
 | `--allow-external-symlinks` | Allow symlinks pointing outside the skill directory (with size limits). Ignored for remote/clone sources. |
 | `-v, --verbose` | Verbose output |
 | `-q, --quiet` | Minimal output (paths only) |
