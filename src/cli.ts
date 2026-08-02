@@ -339,7 +339,7 @@ export async function runPack(args: string[]): Promise<void> {
       // Interactive: list skills and confirm pack all
       const effectiveOutputDir = outputDir || process.cwd();
       const existingOutputs = new Map<string, boolean>(
-        skills.map(skill => [skill.name, existsSync(join(effectiveOutputDir, `${skill.name}.skill`))])
+        skills.map(skill => [skill.name, existsSync(join(effectiveOutputDir, `${basename(skill.path)}.skill`))])
       );
 
       console.log(`\n${pc.bold('Skills found')}:`);
