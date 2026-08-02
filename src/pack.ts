@@ -1,7 +1,9 @@
-import { readdir, mkdir, readFile, stat } from 'fs/promises';
-import { join, basename, resolve } from 'path';
+import { readdir, mkdir, readFile, stat, lstat, readlink } from 'fs/promises';
+import { join, basename, resolve, dirname, relative, isAbsolute } from 'path';
 import { createWriteStream, existsSync } from 'fs';
+import type { Stats } from 'fs';
 import { Zip, ZipDeflate } from 'fflate';
+import { formatBytes, parseSize } from './size-utils.js';
 import { c as pc } from './print.js';
 import type { PackOptions, PackResult } from './types.ts';
 import { validateSkillPath } from './validate.ts';
@@ -31,6 +33,68 @@ export function shouldExclude(relPath: string): boolean {
   }
   
   return false;
+}
+
+/**
+ * Check if `child` is within `parent` directory (no path traversal).
+ */
+function isPathWithin(child: string, parent: string): boolean {
+  const rel = relative(parent, child);
+  return !rel.startsWith('..') && !isAbsolute(rel);
+}
+
+/**
+ * Resolve a symlink chain to its final target, with loop detection and
+ * external-link boundary checks.
+ *
+ * @throws {Error} on symlink loops, broken links, or external links when not allowed
+ */
+async function resolveSymlinkTarget(
+  symlinkPath: string,
+  rootDir: string,
+  allowExternal: boolean,
+): Promise<{ targetPath: string; isExternal: boolean; targetStat: Stats }> {
+  const visitedInodes = new Set<string>();
+  let current = symlinkPath;
+
+  while (true) {
+    const linkStat = await lstat(current);
+    const inodeKey = `${linkStat.dev}:${linkStat.ino}`;
+
+    if (visitedInodes.has(inodeKey)) {
+      throw new Error(
+        `Symlink loop detected: ${symlinkPath} ` +
+        `(revisited inode ${inodeKey} at ${current})`
+      );
+    }
+
+    if (!linkStat.isSymbolicLink()) {
+      break;
+    }
+
+    visitedInodes.add(inodeKey);
+    const target = await readlink(current);
+    current = resolve(dirname(current), target);
+  }
+
+  const isExternal = !isPathWithin(current, rootDir);
+
+  if (isExternal && !allowExternal) {
+    throw new Error(
+      `Symlink points outside skill directory: ${symlinkPath} -> ${current}\n` +
+      `Use --allow-external-symlinks to include external symlinks (with size limits).`
+    );
+  }
+
+  const targetStat = await stat(current) as Stats;
+
+  if (!targetStat.isFile() && !targetStat.isDirectory()) {
+    throw new Error(
+      `Symlink target is not a regular file or directory: ${symlinkPath} -> ${current}`
+    );
+  }
+
+  return { targetPath: current, isExternal, targetStat };
 }
 
 export async function packSkill(options: PackOptions): Promise<PackResult> {
@@ -113,6 +177,7 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
     };
 
     let bytesWritten = 0;
+    let totalUncompressedSize = 0;
 
     zip.ondata = (err, chunk, final) => {
       if (err) {
@@ -175,14 +240,53 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
         }
         
         if (entry.isSymbolicLink()) {
-          // TODO: Symlink security review needed.
-          // Symlinks pointing inside the repo boundary could potentially be
-          // resolved and included. Symlinks pointing outside the repo are a
-          // security risk (e.g., /etc/passwd, ~/.ssh) and must be rejected.
-          // For now, all symlinks are dropped.
-          filesExcluded.push(relativePath);
-          if (verbose) {
-            console.log(`  ${pc.dim('Skipped symlink')} ${relativePath}`);
+          const symlinks = options.symlinks ?? 'drop';
+
+          if (symlinks === 'drop') {
+            filesExcluded.push(relativePath);
+            if (verbose) {
+              console.log(`  ${pc.dim('Skipped symlink')} ${relativePath}`);
+            }
+            continue;
+          }
+
+          const allowExternal = symlinks === 'all';
+          const effectiveRoot = options.resolveRoot ?? resolvedSkillPath;
+          const resolved = await resolveSymlinkTarget(
+            fullEntryPath, effectiveRoot, allowExternal
+          );
+
+          if (resolved.isExternal) {
+            warn(
+              `  Including external symlink: ${relativePath} -> ${resolved.targetPath} ` +
+              `(${formatBytes(resolved.targetStat.size)})`
+            );
+          }
+
+          if (resolved.targetStat.isDirectory()) {
+            await addDirectory(resolved.targetPath, relativePath, depth + 1);
+          } else {
+            const content = await readFile(resolved.targetPath);
+            totalUncompressedSize += content.length;
+            if (options.maxSize && totalUncompressedSize > options.maxSize) {
+              throw new Error(
+                `Skill exceeds maximum size: ${formatBytes(totalUncompressedSize)} ` +
+                `(limit: ${formatBytes(options.maxSize)})`
+              );
+            }
+            const zipEntryName = `${skillName}/${relativePath}`;
+
+            const zipEntry = new ZipDeflate(zipEntryName, { level: 9 });
+            zipEntry.mtime = resolved.targetStat.mtime;
+            zipEntry.os = 3;
+            zipEntry.attrs = (resolved.targetStat.mode & 0o777) << 16;
+            zip.add(zipEntry);
+            zipEntry.push(new Uint8Array(content), true);
+
+            filesIncluded.push(relativePath);
+            if (verbose) {
+              console.log(`  ${pc.green('Added symlink')} ${relativePath}`);
+            }
           }
           continue;
         }
@@ -192,6 +296,13 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
         } else if (entry.isFile()) {
           const fileStat = await stat(fullEntryPath);
           const content = await readFile(fullEntryPath);
+          totalUncompressedSize += content.length;
+          if (options.maxSize && totalUncompressedSize > options.maxSize) {
+            throw new Error(
+              `Skill exceeds maximum size: ${formatBytes(totalUncompressedSize)} ` +
+              `(limit: ${formatBytes(options.maxSize)})`
+            );
+          }
           const zipEntryName = `${skillName}/${relativePath}`;
           
           const zipEntry = new ZipDeflate(zipEntryName, { level: 9 });
@@ -215,8 +326,4 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
   });
 }
 
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-}
+export { formatBytes, parseSize } from './size-utils.js';

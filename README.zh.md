@@ -31,6 +31,9 @@ npx skill-packer pack anthropics/skills                    # 交互模式：列�
 | `-a, --all` | 打包仓库中发现的所有 skill |
 | `--no-validate` | 跳过验证 |
 | `--strict` | 严格验证：所有格式规则均视为错误（见下文） |
+| `--drop-symlinks` | 丢弃所有符号链接（而非解析内部链接） |
+| `--max-size <size>` | 技能未压缩总大小上限（默认 50mb），超出则打包失败。 |
+| `--allow-external-symlinks` | 允许指向 skill 目录外部的符号链接（有大小限制）。远程/clone 来源忽略此选项。 |
 | `-v, --verbose` | 详细输出 |
 | `-q, --quiet` | 最小输出（仅路径） |
 

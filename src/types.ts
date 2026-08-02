@@ -36,6 +36,18 @@ export interface PackOptions {
   strict?: boolean;
   all?: boolean;
   onConflict?: 'error' | 'skip';
+  /** How to handle symbolic links:
+   * - 'drop' (default): skip all symlinks
+   * - 'internal': resolve symlinks whose target is inside resolveRoot (or skillPath), reject external ones
+   * - 'all': resolve all symlinks, warn for external ones, enforce size limit
+   */
+  symlinks?: 'drop' | 'internal' | 'all';
+  /** Root directory for determining whether a symlink target is "internal".
+   * Defaults to skillPath. Set to the cloned repo root when packing from git sources. */
+  resolveRoot?: string;
+  /** Maximum total uncompressed size in bytes for the skill (all files including resolved symlinks).
+   * Exceeding this limit causes packing to fail. */
+  maxSize?: number;
 }
 
 export interface PackResult {

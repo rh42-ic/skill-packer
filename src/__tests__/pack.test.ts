@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { shouldExclude, formatBytes } from '../pack.ts';
-import { existsSync, mkdirSync, writeFileSync, rmSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
@@ -242,5 +242,156 @@ This is a test skill.`
 
     expect(result.skillName).toBe('no-validate-skill');
     expect(existsSync(result.outputPath)).toBe(true);
+  });
+
+  describe('symlink handling', () => {
+    it('drops all symlinks by default (no symlinks option)', async () => {
+      const externalDir = join(tmpDir, 'external');
+      mkdirSync(externalDir, { recursive: true });
+      writeFileSync(join(externalDir, 'outside.md'), '# Outside');
+
+      // Internal symlink
+      symlinkSync(join(skillDir, 'src', 'helper.ts'), join(skillDir, 'internal-link.ts'));
+      // External symlink
+      symlinkSync(join(externalDir, 'outside.md'), join(skillDir, 'external-link.md'));
+
+      const { packSkill } = await import('../pack.ts');
+      const result = await packSkill({
+        skillPath: skillDir,
+        outputPath: tmpDir,
+      });
+
+      // Both symlinks should be excluded
+      expect(result.filesExcluded).toContain('internal-link.ts');
+      expect(result.filesExcluded).toContain('external-link.md');
+      // Neither should be included
+      expect(result.filesIncluded).toBe(4); // original 4 files only
+    });
+
+    it('resolves internal symlinks when symlinks=internal', async () => {
+      // Create symlink inside skill dir pointing to another skill file
+      symlinkSync(join(skillDir, 'README.md'), join(skillDir, 'readme-link.md'));
+
+      const { packSkill } = await import('../pack.ts');
+      const result = await packSkill({
+        skillPath: skillDir,
+        outputPath: tmpDir,
+        symlinks: 'internal',
+      });
+
+      expect(result.filesIncluded).toBeGreaterThanOrEqual(5); // 4 original + symlink
+      expect(result.filesExcluded).not.toContain('readme-link.md');
+    });
+
+    it('resolves internal symlink to a directory when symlinks=internal', async () => {
+      const subDir = join(skillDir, 'sub');
+      mkdirSync(subDir, { recursive: true });
+      writeFileSync(join(subDir, 'nested.md'), '# nested');
+
+      symlinkSync(subDir, join(skillDir, 'sub-link'));
+
+      const { packSkill } = await import('../pack.ts');
+      const result = await packSkill({
+        skillPath: skillDir,
+        outputPath: tmpDir,
+        symlinks: 'internal',
+      });
+
+      // The symlink was followed and the nested file included
+      expect(result.filesExcluded).not.toContain('sub-link');
+      expect(result.filesIncluded).toBeGreaterThanOrEqual(6); // 4 original + sub/nested.md + symlink dir entry
+    });
+
+    it('rejects external symlinks when symlinks=internal', async () => {
+      const externalDir = join(tmpDir, 'external');
+      mkdirSync(externalDir, { recursive: true });
+      writeFileSync(join(externalDir, 'outside.md'), '# Outside');
+
+      symlinkSync(join(externalDir, 'outside.md'), join(skillDir, 'external-link.md'));
+
+      const { packSkill } = await import('../pack.ts');
+      await expect(
+        packSkill({
+          skillPath: skillDir,
+          outputPath: tmpDir,
+          symlinks: 'internal',
+        })
+      ).rejects.toThrow('points outside skill directory');
+    });
+
+    it('follows external symlinks with warning when symlinks=all', async () => {
+      const externalDir = join(tmpDir, 'external');
+      mkdirSync(externalDir, { recursive: true });
+      writeFileSync(join(externalDir, 'outside.md'), '# Outside');
+
+      symlinkSync(join(externalDir, 'outside.md'), join(skillDir, 'external-link.md'));
+
+      const { packSkill } = await import('../pack.ts');
+      const result = await packSkill({
+        skillPath: skillDir,
+        outputPath: tmpDir,
+        symlinks: 'all',
+      });
+
+      expect(result.filesIncluded).toBeGreaterThanOrEqual(5);
+      expect(result.filesExcluded).not.toContain('external-link.md');
+    });
+
+    it('rejects when total size exceeds maxSize via symlink resolution (symlinks=all)', async () => {
+      const externalDir = join(tmpDir, 'external');
+      mkdirSync(externalDir, { recursive: true });
+      writeFileSync(join(externalDir, 'outside.md'), '# This is some external content that adds up');
+
+      symlinkSync(join(externalDir, 'outside.md'), join(skillDir, 'ext-link.md'));
+
+      const { packSkill } = await import('../pack.ts');
+      await expect(
+        packSkill({
+          skillPath: skillDir,
+          outputPath: tmpDir,
+          symlinks: 'all',
+          maxSize: 50, // very small limit — symlink target alone pushes it over
+        })
+      ).rejects.toThrow('exceeds maximum size');
+    });
+
+    it('rejects when total uncompressed size exceeds maxSize', async () => {
+      const { packSkill } = await import('../pack.ts');
+      await expect(
+        packSkill({
+          skillPath: skillDir,
+          outputPath: tmpDir,
+          maxSize: 10, // impossibly small
+        })
+      ).rejects.toThrow('exceeds maximum size');
+    });
+
+    it('detects symlink loops and rejects', async () => {
+      // Create a -> b -> a loop
+      symlinkSync(join(skillDir, 'loop-b'), join(skillDir, 'loop-a'));
+      symlinkSync(join(skillDir, 'loop-a'), join(skillDir, 'loop-b'));
+
+      const { packSkill } = await import('../pack.ts');
+      await expect(
+        packSkill({
+          skillPath: skillDir,
+          outputPath: tmpDir,
+          symlinks: 'internal',
+        })
+      ).rejects.toThrow('loop');
+    }, 10000);
+
+    it('rejects broken symlinks', async () => {
+      symlinkSync(join(skillDir, 'nonexistent-file'), join(skillDir, 'broken-link'));
+
+      const { packSkill } = await import('../pack.ts');
+      await expect(
+        packSkill({
+          skillPath: skillDir,
+          outputPath: tmpDir,
+          symlinks: 'internal',
+        })
+      ).rejects.toThrow();
+    }, 10000);
   });
 });

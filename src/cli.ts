@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import { parseSource, getOwnerRepo } from './source-parser.ts';
 import { listSkills } from './list.ts';
 import { packSkill, formatBytes } from './pack.ts';
+import { parseSize } from './size-utils.js';
 import { validateSkillPath } from './validate.ts';
 import { discoverSkills, filterSkills } from './skills.ts';
 import { cloneRepo, cleanupTempDir } from './git.ts';
@@ -91,6 +92,9 @@ ${pc.bold('Pack Options:')}
   -f, --force            Overwrite existing .skill file
   --no-validate         Skip validation before packing
   --strict               Treat unknown frontmatter keys as errors
+  --drop-symlinks        Drop all symlinks instead of resolving internal ones
+  --max-size <size>      Maximum total uncompressed skill size (default: 50mb, e.g. 10mb, 1.5g)
+  --allow-external-symlinks  Allow symlinks pointing outside the skill (with size limits)
   -a, --all               Pack all discovered skills in the repository
   -v, --verbose          Show detailed output
 
@@ -163,6 +167,9 @@ export async function runPack(args: string[]): Promise<void> {
   let strict = false;
   let all = false;
   let quiet = false;
+  let symlinks: 'drop' | 'internal' | 'all' = 'internal';
+  let allowExternalSymlinks = false;
+  let maxSize: number | undefined;
 
   for (let i = 0; i < restArgs.length; i++) {
     const arg = restArgs[i];
@@ -192,6 +199,22 @@ export async function runPack(args: string[]): Promise<void> {
       all = true;
     } else if (arg === '-q' || arg === '--quiet') {
       quiet = true;
+    } else if (arg === '--drop-symlinks') {
+      symlinks = 'drop';
+    } else if (arg === '--allow-external-symlinks') {
+      allowExternalSymlinks = true;
+    } else if (arg === '--max-size') {
+      const val = restArgs[++i];
+      if (!val) {
+        error('--max-size requires a value (e.g. 10mb, 500k, 1048576)');
+        process.exit(1);
+      }
+      try {
+        maxSize = parseSize(val);
+      } catch (e) {
+        error(e instanceof Error ? e.message : `Invalid --max-size: ${val}`);
+        process.exit(1);
+      }
     }
   }
 
@@ -200,6 +223,14 @@ export async function runPack(args: string[]): Promise<void> {
   // machine-readable (pack.ts already gates its listing on `if (verbose)`).
   if (quiet) {
     verbose = false;
+  }
+
+  if (allowExternalSymlinks) {
+    symlinks = 'all';
+  }
+
+  if (maxSize === undefined) {
+    maxSize = parseSize('50mb');
   }
 
   let tempDir: string | null = null;
@@ -215,6 +246,12 @@ export async function runPack(args: string[]): Promise<void> {
       info(`Cloning ${displayName}...`);
       tempDir = await cloneRepo(parsed.url, parsed.ref);
       skillPath = tempDir;
+
+      // Git clone sources: external symlinks are a security risk, always rejected.
+      if (allowExternalSymlinks) {
+        warn('--allow-external-symlinks ignored for remote/clone sources; external symlinks are always rejected.');
+      }
+      symlinks = 'internal';
 
       if (parsed.subpath) {
         skillPath = join(skillPath, parsed.subpath);
@@ -286,6 +323,7 @@ export async function runPack(args: string[]): Promise<void> {
             validate,
             verbose,
             strict,
+            maxSize,
             onConflict: 'skip',
           });
 
@@ -347,6 +385,9 @@ export async function runPack(args: string[]): Promise<void> {
           validate,
           verbose,
           strict,
+          maxSize,
+          symlinks,
+          resolveRoot: tempDir ?? undefined,
         });
 
         if (isQuiet()) {
@@ -363,14 +404,17 @@ export async function runPack(args: string[]): Promise<void> {
         const failures: Array<{ name: string; message: string }> = [];
         for (const skill of skills) {
           try {
-            const result = await packSkill({
-              skillPath: skill.path,
-              outputPath: outputDir,
-              force,
-              validate,
-              verbose,
-              strict,
-              onConflict: 'skip',
+          const result = await packSkill({
+            skillPath: skill.path,
+            outputPath: outputDir,
+            force,
+            validate,
+            verbose,
+            strict,
+            maxSize,
+            onConflict: 'skip',
+            symlinks,
+            resolveRoot: tempDir ?? undefined,
             });
             if (result.skipped) {
               console.error('SKIPPED:', result.outputPath);
@@ -434,6 +478,7 @@ export async function runPack(args: string[]): Promise<void> {
             validate,
             verbose,
             strict,
+            maxSize,
             onConflict: 'skip',
           });
 
@@ -462,6 +507,7 @@ export async function runPack(args: string[]): Promise<void> {
       validate,
       verbose,
       strict,
+      maxSize,
     });
 
     if (isQuiet()) {
