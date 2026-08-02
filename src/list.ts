@@ -3,7 +3,7 @@ import type { ListOptions, Skill } from './types.ts';
 import { parseSource, getOwnerRepo } from './source-parser.ts';
 import { discoverSkills, getSkillDisplayName } from './skills.ts';
 import { cloneRepo, cleanupTempDir, GitCloneError } from './git.ts';
-import { error, warn, info, path, count, detail } from './print.js';
+import { error, warn, info, path, count, detail, isQuiet } from './print.js';
 
 export async function listSkills(options: ListOptions): Promise<Skill[]> {
   const { source, json, verbose, fullDepth, all } = options;
@@ -22,7 +22,9 @@ export async function listSkills(options: ListOptions): Promise<Skill[]> {
       searchPath = parsed.localPath!;
     } else {
       const displayName = getOwnerRepo(parsed) || parsed.url;
-      info(`Fetching from ${displayName}...`);
+      if (!json && !isQuiet()) {
+        info(`Fetching from ${displayName}...`);
+      }
       
       try {
         tempDir = await cloneRepo(parsed.url, parsed.ref);
@@ -41,7 +43,7 @@ export async function listSkills(options: ListOptions): Promise<Skill[]> {
     }
   }
   
-  if (!json) {
+  if (!json && !isQuiet()) {
     info('Discovering skills...');
   }
   
@@ -53,7 +55,9 @@ export async function listSkills(options: ListOptions): Promise<Skill[]> {
         console.log('[]');
       } else {
         warn('No skills found.');
-        console.log(detail('Skills require a SKILL.md with name and description.'));
+        if (!isQuiet()) {
+          console.log(detail('Skills require a SKILL.md with name and description.'));
+        }
       }
       return [];
     }
@@ -66,6 +70,10 @@ export async function listSkills(options: ListOptions): Promise<Skill[]> {
         pluginName: s.pluginName,
       }));
       console.log(JSON.stringify(output, null, 2));
+    } else if (isQuiet()) {
+      for (const skill of skills) {
+        console.log(skill.name);
+      }
     } else {
       info(`Found ${count(skills.length)} skill${skills.length !== 1 ? 's' : ''}:\n`);
       

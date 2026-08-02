@@ -1,5 +1,26 @@
 import pc from 'picocolors';
 
+let quiet = false;
+
+export function setQuiet(q: boolean): void {
+  quiet = q;
+}
+
+export function isQuiet(): boolean {
+  return quiet;
+}
+
+// Color wrapper that returns plain strings in quiet mode so output stays
+// machine-readable (no ANSI escape codes).
+export const c = {
+  dim: (s: string) => quiet ? s : pc.dim(s),
+  red: (s: string) => quiet ? s : pc.red(s),
+  bold: (s: string) => quiet ? s : pc.bold(s),
+  green: (s: string) => quiet ? s : pc.green(s),
+  yellow: (s: string) => quiet ? s : pc.yellow(s),
+  cyan: (s: string) => quiet ? s : pc.cyan(s),
+};
+
 const G = {
   ok: pc.green('✓'),
   err: pc.red('✗'),
@@ -9,37 +30,50 @@ const G = {
 // --- Output functions ---
 
 export function success(msg: string): void {
-  console.log(`${G.ok} ${msg}`);
+  if (quiet) {
+    console.log(msg);
+  } else {
+    console.log(`${G.ok} ${msg}`);
+  }
 }
 
 export function error(msg: string): void {
-  console.error(`${G.err} ${msg}`);
+  if (quiet) {
+    console.error(msg);
+  } else {
+    console.error(`${G.err} ${msg}`);
+  }
 }
 
 export function warn(msg: string): void {
-  console.warn(`${G.warn} ${msg}`);
+  if (quiet) {
+    console.warn(msg);
+  } else {
+    console.warn(`${G.warn} ${msg}`);
+  }
 }
 
 export function info(msg: string): void {
-  console.log(`${pc.cyan('ℹ')} ${msg}`);
+  if (quiet) return;
+  console.log(`${pc.cyan('❕')} ${msg}`);
 }
 
 // --- Styled value wrappers ---
 
 export function path(s: string): string {
-  return pc.cyan(s);
+  return quiet ? s : pc.cyan(s);
 }
 
 export function count(n: number): string {
-  return pc.yellow(String(n));
+  return quiet ? String(n) : pc.yellow(String(n));
 }
 
 export function detail(s: string): string {
-  return pc.dim(s);
+  return quiet ? s : pc.dim(s);
 }
 
 export function highlight(s: string): string {
-  return pc.cyan(s);
+  return quiet ? s : pc.cyan(s);
 }
 
 // --- Formatting helpers ---
@@ -49,9 +83,9 @@ export function indent(n: number, text: string): string {
 }
 
 export function bullet(text: string): string {
-  return `  ${pc.dim('•')} ${text}`;
+  return quiet ? text : `  ${pc.dim('•')} ${text}`;
 }
 
 export function dimLabel(label: string): string {
-  return pc.dim(label);
+  return quiet ? label : pc.dim(label);
 }

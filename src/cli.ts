@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import pc from 'picocolors';
+import { c as pc, setQuiet, isQuiet } from './print.js';
 import * as readline from 'readline';
 import { success, error, warn, info, path, count, detail, highlight, indent, bullet, dimLabel } from './print.js';
 import { readFileSync, existsSync } from 'fs';
@@ -141,8 +141,10 @@ export async function runPack(args: string[]): Promise<void> {
 
   if (args.length === 0 || args[0]?.startsWith('-')) {
     error('Missing source');
-    console.log('Usage: skill-packer pack <source> [options]');
-    console.log('       skill-packer pack <url> --skill <name> [options]');
+    if (!isQuiet()) {
+      console.log('Usage: skill-packer pack <source> [options]');
+      console.log('       skill-packer pack <url> --skill <name> [options]');
+    }
     process.exit(1);
   }
 
@@ -156,6 +158,7 @@ export async function runPack(args: string[]): Promise<void> {
   let verbose = false;
   let strict = false;
   let all = false;
+  let quiet = false;
 
   for (let i = 0; i < restArgs.length; i++) {
     const arg = restArgs[i];
@@ -183,7 +186,16 @@ export async function runPack(args: string[]): Promise<void> {
       strict = true;
     } else if (arg === '--all' || arg === '-a') {
       all = true;
+    } else if (arg === '-q' || arg === '--quiet') {
+      quiet = true;
     }
+  }
+
+  setQuiet(quiet);
+  // In quiet mode, verbose detail output is disabled too so stdout stays
+  // machine-readable (pack.ts already gates its listing on `if (verbose)`).
+  if (quiet) {
+    verbose = false;
   }
 
   let tempDir: string | null = null;
@@ -230,7 +242,9 @@ export async function runPack(args: string[]): Promise<void> {
       }
       if (!match) {
         error(`Skill "${skillFilter}" not found`);
-        console.log(pc.dim(`Available skills: ${skills.map(s => s.name).join(', ')}`));
+        if (!isQuiet()) {
+          console.log(pc.dim(`Available skills: ${skills.map(s => s.name).join(', ')}`));
+        }
         process.exit(1);
       }
 
@@ -272,12 +286,18 @@ export async function runPack(args: string[]): Promise<void> {
           });
 
           if (result.skipped) {
-            warn(`Skipped: ${skill.name} (${result.skipReason || 'File already exists'})`);
+            if (isQuiet()) {
+              console.error('SKIPPED:', result.outputPath);
+            } else {
+              warn(`Skipped: ${skill.name} (${result.skipReason || 'File already exists'})`);
+            }
             continue;
           }
 
           succeeded++;
-          if (!verbose) {
+          if (isQuiet()) {
+            console.log(result.outputPath);
+          } else if (!verbose) {
             success(`Packed: ${path(result.outputPath)} (${formatBytes(result.size)})`);
           }
         } catch (e) {
@@ -288,10 +308,12 @@ export async function runPack(args: string[]): Promise<void> {
       }
 
       const failureCount = failures.length;
-      const summary = failureCount > 0
-        ? `${count(succeeded)} succeeded, ${pc.red(`${failureCount} failed`)}`
-        : `${count(succeeded)} succeeded, 0 failed`;
-      console.log(summary);
+      if (!isQuiet()) {
+        const summary = failureCount > 0
+          ? `${count(succeeded)} succeeded, ${pc.red(`${failureCount} failed`)}`
+          : `${count(succeeded)} succeeded, 0 failed`;
+        console.log(summary);
+      }
 
       if (failureCount > 0) {
         process.exit(1);
@@ -323,16 +345,50 @@ export async function runPack(args: string[]): Promise<void> {
           strict,
         });
 
-        if (!verbose) {
+        if (isQuiet()) {
+          console.log(result.outputPath);
+        } else if (!verbose) {
           success(`Packed: ${path(result.outputPath)} (${formatBytes(result.size)})`);
         }
         return;
       }
 
-      // Multiple skills: interactive prompt (or error in non-TTY environments)
+      // Multiple skills: -q implies --all, non-TTY requires explicit flags
+      if (isQuiet()) {
+        let succeeded = 0;
+        const failures: Array<{ name: string; message: string }> = [];
+        for (const skill of skills) {
+          try {
+            const result = await packSkill({
+              skillPath: skill.path,
+              outputPath: outputDir,
+              force,
+              validate,
+              verbose,
+              strict,
+              onConflict: 'skip',
+            });
+            if (result.skipped) {
+              console.error('SKIPPED:', result.outputPath);
+              continue;
+            }
+            succeeded++;
+            console.log(result.outputPath);
+          } catch (e) {
+            const message = e instanceof Error ? e.message : 'Unknown error';
+            failures.push({ name: skill.name, message });
+            error(`Failed: ${skill.name} (${message})`);
+          }
+        }
+        if (failures.length > 0) process.exit(1);
+        return;
+      }
+
       if (!process.stdin.isTTY) {
         error('Multiple skills found. Use --skill or --all to select.');
-        console.log(pc.dim(`Available: ${skills.map(s => s.name).join(', ')}`));
+        if (!isQuiet()) {
+          console.log(pc.dim(`Available: ${skills.map(s => s.name).join(', ')}`));
+        }
         process.exit(1);
       }
 
@@ -404,7 +460,9 @@ export async function runPack(args: string[]): Promise<void> {
       strict,
     });
 
-    if (!verbose) {
+    if (isQuiet()) {
+      console.log(result.outputPath);
+    } else if (!verbose) {
       success(`Packed: ${path(result.outputPath)} (${formatBytes(result.size)})`);
     }
 
@@ -426,12 +484,15 @@ export async function runList(args: string[]): Promise<void> {
   let json = false;
   let verbose = false;
   let fullDepth = false;
+  let quiet = false;
 
   for (let i = 0; i < restArgs.length; i++) {
     const arg = restArgs[i];
     if (arg?.startsWith('-')) {
       if (arg === '-j' || arg === '--json') {
         json = true;
+      } else if (arg === '-q' || arg === '--quiet') {
+        quiet = true;
       } else if (arg === '-v' || arg === '--verbose') {
         verbose = true;
       } else if (arg === '--full-depth') {
@@ -444,6 +505,13 @@ export async function runList(args: string[]): Promise<void> {
       source = arg;
     }
   }
+
+  if (quiet && json) {
+    error('--quiet and --json are mutually exclusive');
+    process.exit(1);
+  }
+
+  setQuiet(quiet);
 
   try {
     await listSkills({ source, json, verbose, fullDepth });
@@ -469,7 +537,9 @@ export async function runCheck(args: string[]): Promise<void> {
 
   if (!skillPath) {
     error('Missing skill path');
-    console.log('Usage: skill-packer check <path> [--strict]');
+    if (!isQuiet()) {
+      console.log('Usage: skill-packer check <path> [--strict]');
+    }
     process.exit(1);
   }
 
@@ -482,24 +552,24 @@ export async function runCheck(args: string[]): Promise<void> {
       if (result.warnings.length > 0) {
         warn('Skill is valid with warnings:\n');
         for (const warning of result.warnings) {
-          console.warn(bullet(warning));
+          warn(bullet(warning));
         }
-        console.log();
+        if (!isQuiet()) console.log();
       }
       success('Skill is valid!\n');
       process.exit(0);
     } else {
       error('Validation failed:\n');
-      for (const error of result.errors) {
-        console.error(bullet(error));
+      for (const err of result.errors) {
+        error(bullet(err));
       }
       if (result.warnings.length > 0) {
         warn('\nWarnings:');
         for (const warning of result.warnings) {
-          console.warn(bullet(warning));
+          warn(bullet(warning));
         }
       }
-      console.log();
+      if (!isQuiet()) console.log();
       process.exit(1);
     }
   } catch (e) {
@@ -527,6 +597,11 @@ export async function main(): Promise<void> {
   const command = isPackAlias ? 'pack' : args[0];
   const restArgs = isPackAlias ? args : args.slice(1);
 
+  // Quiet mode: enable early so main() can skip decorative output (logo)
+  if (restArgs.includes('-q') || restArgs.includes('--quiet')) {
+    setQuiet(true);
+  }
+
   // Handle --help/--version for pack-skill alias
   if (isPackAlias) {
     if (args[0] === '--help' || args[0] === '-h') {
@@ -541,7 +616,7 @@ export async function main(): Promise<void> {
 
   switch (command) {
     case 'pack':
-      if (!isPackAlias) {
+      if (!isPackAlias && !isQuiet()) {
         showLogo();
         console.log();
       }
@@ -549,14 +624,18 @@ export async function main(): Promise<void> {
       break;
     case 'list':
     case 'ls':
-      showLogo();
-      console.log();
+      if (!isQuiet()) {
+        showLogo();
+        console.log();
+      }
       await runList(restArgs);
       break;
     case 'check':
     case 'validate':
-      showLogo();
-      console.log();
+      if (!isQuiet()) {
+        showLogo();
+        console.log();
+      }
       await runCheck(restArgs);
       break;
     case '--help':
@@ -568,8 +647,10 @@ export async function main(): Promise<void> {
       console.log(VERSION);
       break;
     default:
-      console.log(`Unknown command: ${command}`);
-      console.log(`Run ${pc.bold('skill-packer --help')} for usage.`);
+      error(`Unknown command: ${command}`);
+      if (!isQuiet()) {
+        console.log(`Run ${pc.bold('skill-packer --help')} for usage.`);
+      }
       process.exit(1);
   }
 }

@@ -2,7 +2,7 @@ import { readdir, mkdir } from 'fs/promises';
 import { join, basename, resolve } from 'path';
 import { createWriteStream, existsSync } from 'fs';
 import { ZipArchive } from 'archiver';
-import pc from 'picocolors';
+import { c as pc } from './print.js';
 import type { PackOptions, PackResult } from './types.ts';
 import { validateSkillPath } from './validate.ts';
 import { success, error, warn, info, path, count, detail, highlight, indent, bullet, dimLabel } from './print.js';
@@ -48,8 +48,8 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
     
     if (!validation.valid) {
       error('Validation failed:');
-      for (const error of validation.errors) {
-        console.error(bullet(error));
+      for (const err of validation.errors) {
+        error(bullet(err));
       }
       throw new Error('Validation failed');
     }
@@ -57,7 +57,7 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
     if (validation.warnings.length > 0) {
       warn('Warnings:');
       for (const warning of validation.warnings) {
-        console.warn(bullet(warning));
+        warn(bullet(warning));
       }
     }
     
