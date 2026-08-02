@@ -34,7 +34,7 @@ export function shouldExclude(relPath: string): boolean {
 }
 
 export async function packSkill(options: PackOptions): Promise<PackResult> {
-  const { skillPath, outputPath, verbose = false, force = false, validate = true, strict = false } = options;
+  const { skillPath, outputPath, verbose = false, force = false, validate = true, strict = false, onConflict = 'error' } = options;
   
   const resolvedSkillPath = resolve(skillPath);
   const skillName = basename(resolvedSkillPath);
@@ -76,6 +76,17 @@ export async function packSkill(options: PackOptions): Promise<PackResult> {
   const outputFilePath = join(outputDir, `${skillName}.skill`);
   
   if (existsSync(outputFilePath) && !force) {
+    if (onConflict === 'skip') {
+      return {
+        outputPath: outputFilePath,
+        skillName,
+        filesIncluded: 0,
+        filesExcluded: [],
+        size: 0,
+        skipped: true,
+        skipReason: `File already exists: ${outputFilePath}`,
+      };
+    }
     throw new Error(`File already exists: ${outputFilePath}. Use --force to overwrite.`);
   }
   

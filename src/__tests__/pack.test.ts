@@ -180,6 +180,27 @@ This is a test skill.`
     ).rejects.toThrow('File already exists');
   });
 
+  it('returns skipped result when onConflict is skip', async () => {
+    // Pre-create the output file
+    writeFileSync(join(tmpDir, 'test-skill.skill'), 'existing');
+
+    const { packSkill } = await import('../pack.ts');
+    const result = await packSkill({
+      skillPath: skillDir,
+      outputPath: tmpDir,
+      force: false,
+      onConflict: 'skip',
+    });
+
+    expect(result.skipped).toBe(true);
+    expect(result.skipReason).toContain('File already exists');
+    expect(result.outputPath).toBe(join(tmpDir, 'test-skill.skill'));
+    expect(result.skillName).toBe('test-skill');
+    expect(result.filesIncluded).toBe(0);
+    expect(result.filesExcluded).toEqual([]);
+    expect(result.size).toBe(0);
+  });
+
   it('overwrites when force is true', async () => {
     writeFileSync(join(tmpDir, 'test-skill.skill'), 'existing');
 

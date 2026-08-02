@@ -268,7 +268,13 @@ export async function runPack(args: string[]): Promise<void> {
             validate,
             verbose,
             strict,
+            onConflict: 'skip',
           });
+
+          if (result.skipped) {
+            warn(`Skipped: ${skill.name} (${result.skipReason || 'File already exists'})`);
+            continue;
+          }
 
           succeeded++;
           if (!verbose) {
@@ -331,9 +337,19 @@ export async function runPack(args: string[]): Promise<void> {
       }
 
       // Interactive: list skills and confirm pack all
+      const effectiveOutputDir = outputDir || process.cwd();
+      const existingOutputs = new Map<string, boolean>(
+        skills.map(skill => [skill.name, existsSync(join(effectiveOutputDir, `${skill.name}.skill`))])
+      );
+
       console.log(`\n${pc.bold('Skills found')}:`);
       for (const skill of skills) {
-        console.log(`  ${pc.green('•')} ${pc.bold(skill.name)} ${pc.dim(`(${skill.pluginName || 'standalone'})`)}`);
+        const marker = existingOutputs.get(skill.name) ? pc.yellow(' ⚠') + pc.dim(' (exists)') : '';
+        console.log(`  ${pc.green('•')} ${pc.bold(skill.name)} ${pc.dim(`(${skill.pluginName || 'standalone'})`)}${marker}`);
+      }
+
+      if (existingOutputs.size > 0 && [...existingOutputs.values()].some(v => v)) {
+        console.log(pc.dim('\n⚠ = output file already exists, will be skipped (use --force to overwrite)'));
       }
 
       const confirmed = await new Promise<boolean>((resolve) => {
@@ -350,17 +366,28 @@ export async function runPack(args: string[]): Promise<void> {
       }
 
       for (const skill of skills) {
-        const result = await packSkill({
-          skillPath: skill.path,
-          outputPath: outputDir,
-          force,
-          validate,
-          verbose,
-          strict,
-        });
+        try {
+          const result = await packSkill({
+            skillPath: skill.path,
+            outputPath: outputDir,
+            force,
+            validate,
+            verbose,
+            strict,
+            onConflict: 'skip',
+          });
 
-        if (!verbose) {
-          success(`Packed: ${path(result.outputPath)} (${formatBytes(result.size)})`);
+          if (result.skipped) {
+            warn(`Skipped: ${skill.name} (${result.skipReason || 'File already exists'})`);
+            continue;
+          }
+
+          if (!verbose) {
+            success(`Packed: ${path(result.outputPath)} (${formatBytes(result.size)})`);
+          }
+        } catch (e) {
+          const message = e instanceof Error ? e.message : 'Unknown error';
+          error(`Failed: ${skill.name} (${message})`);
         }
       }
 

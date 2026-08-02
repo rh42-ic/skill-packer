@@ -35,6 +35,7 @@ export interface PackOptions {
   validate?: boolean;
   strict?: boolean;
   all?: boolean;
+  onConflict?: 'error' | 'skip';
 }
 
 export interface PackResult {
@@ -43,6 +44,8 @@ export interface PackResult {
   filesIncluded: number;
   filesExcluded: string[];
   size: number;
+  skipped?: boolean;
+  skipReason?: string;
 }
 
 export interface ListOptions {
