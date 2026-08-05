@@ -5,10 +5,12 @@ import * as readline from 'readline';
 import { success, error, warn, info, path, count, detail, highlight, indent, bullet, dimLabel } from './print.js';
 import { readFileSync, existsSync } from 'fs';
 import { join, dirname, basename } from 'path';
+import { homedir } from 'os';
 import { fileURLToPath } from 'url';
 import { parseSource, getOwnerRepo } from './source-parser.ts';
 import { listSkills } from './list.ts';
 import { packSkill, formatBytes } from './pack.ts';
+import { unpackSkill, resolveSkillFile } from './unpack.ts';
 import { parseSize } from './size-utils.js';
 import { validateSkillPath } from './validate.ts';
 import { discoverSkills, filterSkills } from './skills.ts';
@@ -64,6 +66,7 @@ function showBanner(): void {
   console.log(`  ${pc.dim('$')} ${pc.dim('npx skill-packer pack <path>')}      ${pc.dim('Pack a skill to .skill file')}`);
   console.log(`  ${pc.dim('$')} ${pc.dim('npx skill-packer pack <url> --skill <name>')}  ${pc.dim('Pack from remote')}`);
   console.log(`  ${pc.dim('$')} ${pc.dim('npx skill-packer list <url>')}       ${pc.dim('List skills from remote')}`);
+  console.log(`  ${pc.dim('$')} ${pc.dim('npx skill-packer add <file.skill|name>')}   ${pc.dim('Install a skill from .skill file')}`);
   console.log();
   console.log(pc.dim('Options:'));
   console.log(`  ${pc.dim('-o, --output <dir>')}    ${pc.dim('Output directory')}`);
@@ -76,6 +79,8 @@ function showBanner(): void {
   console.log(`  ${pc.dim('-a, --all')}                ${pc.dim('Pack all discovered skills')}`);
   console.log(`  ${pc.dim('--max-skill-size <size>')}  ${pc.dim('Maximum uncompressed skill size (default: 50mb, e.g. 10mb, 1.5g)')}`);
   console.log(`  ${pc.dim('--max-repo-size <size>')}   ${pc.dim('Maximum repository size before cloning (default: 100mb)')}`);
+  console.log(`  ${pc.dim('-g, --global')}          ${pc.dim('Install to ~/.agents/skills')}`);
+  console.log(`  ${pc.dim('-p, --project')}         ${pc.dim('Install to ./<cwd>/.agents/skills (default)')}`);
   console.log(`  ${pc.dim('-q, --quiet')}          ${pc.dim('Minimal output (paths only)')}`);
   console.log();
 }
@@ -86,6 +91,7 @@ ${pc.bold('Usage:')} skill-packer <command> [options]
 
 ${pc.bold('Commands:')}
   pack <source>          Pack a skill directory to .skill file
+  add|install|unpack <file.skill | name>   Install a skill from a .skill file
   list [source]          List skills in a repository or directory
   check <path>           Validate a skill directory
 
@@ -101,6 +107,13 @@ ${pc.bold('Pack Options:')}
   --allow-external-symlinks  Allow symlinks pointing outside the skill (with size limits)
   -a, --all               Pack all discovered skills in the repository
   -v, --verbose          Show detailed output
+
+${pc.bold('Add Options:')}
+  -g, --global            Install to ~/.agents/skills
+  -p, --project           Install to ./<cwd>/.agents/skills (default)
+  -v, --verbose          Show detailed output
+  --max-skill-size <size>  Maximum uncompressed skill size (default: 50mb, e.g. 10mb, 1.5g)
+  ${pc.dim('A bare <name> is looked up as <name>.skill in the current directory, then in $SKILL_PACKER_REPO_DIR (if set).')}
 
 ${pc.bold('Check Options:')}
   --strict               Treat unknown frontmatter keys as errors
@@ -130,6 +143,12 @@ ${pc.bold('Examples:')}
   
   ${pc.dim('# Pack and specify output directory')}
   ${pc.dim('npx skill-packer pack ./my-skill -o ./dist')}
+  
+  ${pc.dim('# Install a skill from a .skill file globally')}
+  ${pc.dim('npx skill-packer add ./my-skill.skill --global')}
+  
+  ${pc.dim('# Install a skill by name (resolved from cwd or $SKILL_PACKER_REPO_DIR)')}
+  ${pc.dim('npx skill-packer add my-skill --global')}
   
   ${pc.dim('# List skills in a GitHub repository')}
   ${pc.dim('npx skill-packer list vercel-labs/agent-skills')}
@@ -662,6 +681,101 @@ export async function runCheck(args: string[]): Promise<void> {
   }
 }
 
+export async function runAdd(args: string[]): Promise<void> {
+  if (args[0] === '--help' || args[0] === '-h') {
+    showHelp();
+    return;
+  }
+
+  if (args.length === 0 || args[0]?.startsWith('-')) {
+    error('Missing skill file');
+    if (!isQuiet()) {
+      console.log('Usage: skill-packer add <file.skill|name> [options]');
+    }
+    process.exit(1);
+  }
+
+  const skillFile = args[0]!;
+  const restArgs = args.slice(1);
+
+  let global = false;
+  let verbose = false;
+  let maxSkillSize: number | undefined;
+
+  for (let i = 0; i < restArgs.length; i++) {
+    const arg = restArgs[i];
+    if (arg === '-g' || arg === '--global') {
+      global = true;
+    } else if (arg === '-p' || arg === '--project') {
+      global = false;
+    } else if (arg === '-v' || arg === '--verbose') {
+      verbose = true;
+    } else if (arg === '-h' || arg === '--help') {
+      showHelp();
+      return;
+    } else if (arg === '--max-skill-size') {
+      const val = restArgs[++i];
+      if (!val) {
+        error('--max-skill-size requires a value (e.g. 10mb, 500k, 1048576)');
+        process.exit(1);
+      }
+      try {
+        maxSkillSize = parseSize(val);
+      } catch (e) {
+        error(e instanceof Error ? e.message : `Invalid --max-skill-size: ${val}`);
+        process.exit(1);
+      }
+    }
+    // -q/--quiet is handled globally in main(); nothing to do here.
+  }
+
+  if (maxSkillSize === undefined) {
+    maxSkillSize = parseSize('50mb');
+  }
+
+  // A bare name is looked up as <name>.skill in the current directory, then in
+  // $SKILL_PACKER_REPO_DIR (when set). Path-looking inputs are used as-is.
+  const repoDir = process.env.SKILL_PACKER_REPO_DIR;
+  const resolved = resolveSkillFile(skillFile, { cwd: process.cwd(), repoDir });
+  const resolvedFile = resolved.file;
+  if (!resolvedFile) {
+    error(`Skill file not found: ${skillFile}`);
+    if (!isQuiet()) {
+      console.error(detail(`Searched: ${resolved.candidates.join(', ')}`));
+      if (!repoDir) {
+        console.error(detail('Set SKILL_PACKER_REPO_DIR to a directory of .skill files to enable name lookup.'));
+      }
+    }
+    process.exit(1);
+  }
+
+  if (verbose && resolvedFile !== skillFile) {
+    info(`Resolved: ${path(resolvedFile)}`);
+  }
+
+  if (!resolvedFile.endsWith('.skill')) {
+    warn(`${resolvedFile} does not look like a .skill file — continuing anyway`);
+  }
+
+  const baseDir = global ? homedir() : process.cwd();
+  const targetDir = join(baseDir, '.agents', 'skills');
+
+  try {
+    const result = await unpackSkill({ skillFile: resolvedFile, targetDir, verbose, maxSkillSize });
+
+    if (isQuiet()) {
+      console.log(result.installPath);
+    } else if (!verbose) {
+      success(`Installed: ${path(result.installPath)} (${formatBytes(result.size)})`);
+      console.log(detail(`${result.filesIncluded} files`));
+    }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Unknown error';
+    error(message);
+    process.exit(1);
+  }
+}
+
 export async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const isPackAlias = process.env.__SKILL_PACKER_DEFAULT === 'pack';
@@ -720,6 +834,15 @@ export async function main(): Promise<void> {
         console.log();
       }
       await runCheck(restArgs);
+      break;
+    case 'add':
+    case 'install':
+    case 'unpack':
+      if (!isQuiet()) {
+        showLogo();
+        console.log();
+      }
+      await runAdd(restArgs);
       break;
     case '--help':
     case '-h':

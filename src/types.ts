@@ -60,6 +60,24 @@ export interface PackResult {
   skipReason?: string;
 }
 
+export interface AddOptions {
+  /** Path to the .skill ZIP file */
+  skillFile: string;
+  /** Directory where the skill folder will be created (e.g. <cwd>/.agents/skills) */
+  targetDir: string;
+  verbose?: boolean;
+  /** Maximum uncompressed skill size in bytes (extraction + input file limit).
+   * Defaults to 50mb. Exceeding it causes extraction to fail. */
+  maxSkillSize?: number;
+}
+
+export interface AddResult {
+  skillName: string;
+  installPath: string;
+  filesIncluded: number;
+  size: number;
+}
+
 export interface ListOptions {
   source?: string;
   verbose?: boolean;
