@@ -42,6 +42,31 @@ npx skill-packer pack anthropics/skills                    # 交互模式：列�
 
 打包前自动验证。静默模式（默认）下每个文件打印 `✓ Packed: {路径} ({大小})`。加 `-v` 查看详细的逐文件输出。未知 frontmatter 字段默认仅警告，加 `--strict` 则视为错误。
 
+### `add <file.skill | name>`
+
+将 `.skill` 文件安装到 agent skills 目录 —— `pack` 的逆操作。完全非交互，无 TUI。
+
+```bash
+npx skill-packer add ./my-skill.skill              # 项目级（默认）
+npx skill-packer add ./my-skill.skill --global     # 安装到 ~/.agents/skills
+npx skill-packer add my-skill                      # 裸名称：依次从当前目录、$SKILL_PACKER_REPO_DIR 查找
+npx skill-packer install my-skill --global         # 别名
+npx skill-packer unpack my-skill                   # 别名
+```
+
+| 选项 | 说明 |
+|------|------|
+| `-p, --project` | 安装到 `<cwd>/.agents/skills`（默认） |
+| `-g, --global` | 安装到 `~/.agents/skills` |
+| `--max-skill-size <size>` | 单个技能未压缩大小上限（默认 50mb）；同时限制输入文件大小 |
+| `-v, --verbose` | 详细输出 |
+| `-q, --quiet` | 最小输出（仅安装路径） |
+
+- 别名：`install`、`unpack`。
+- 裸 `<name>` 会依次以 `<name>` / `<name>.skill` 在当前目录查找，再到 `$SKILL_PACKER_REPO_DIR`（若已设置且可访问）——适合从本地 skill 仓库按名字安装，无需输入完整路径。
+- 重新安装总是覆盖该 skill 自己的目录（清除过期文件）；同一 skills 目录下其他已安装的 skill 不受影响。
+- 安全：归档经过路径穿越校验、必须包含根 `SKILL.md`，大小限制基于流式解压过程中的**实际**解压字节数（zip 炸弹防护），而非仅依赖声明大小。
+
 ### `list [source]`
 
 ```bash
@@ -82,6 +107,12 @@ npx skill-packer check ./my-skill --strict
 **非严格模式（默认）：** `name` 最长 64、kebab-case、连字符规则、`description` 最长 1024、`compatibility` 最长 500 为 **警告**（不影响有效性）。仍有硬上限：`name` >256、`description` >4096、`compatibility` >4096 为错误。
 
 **严格模式（`--strict`）：** 所有格式规则均按较低阈值视为错误。未知 frontmatter 字段同样视为错误（默认仅警告）。
+
+## 环境变量
+
+| 变量 | 说明 |
+|------|------|
+| `SKILL_PACKER_REPO_DIR` | 存放 `.skill` 文件的仓库目录路径。`add` 收到裸 skill 名称且当前目录中找不到时，会在此目录按 `<name>` / `<name>.skill` 查找（目录存在且可访问时）。设置为本地 skill 仓库后即可按名字安装，无需完整路径。 |
 
 ## 许可证
 
